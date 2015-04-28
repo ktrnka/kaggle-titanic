@@ -185,3 +185,95 @@ This seems to do better than MSL 5.
 Test acc 0.76077
 
 This is worse than previous experiments with MSS 80.
+
+Random Forest, MSL 3, Sex, Class, FareFill, AgeFill
+---------------------------------------------------
+Cross-validation min 0.789
+Cross-validation accuracy 0.826 +/- 0.063
+Training accuracy: 0.900
+
+Random Forest, MSS 80, Sex, Class, FareFill, AgeFill
+----------------------------------------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.803 +/- 0.083
+Training accuracy: 0.825
+
+Test acc 0.78947 (much better!)
+
+Decision Tree
+-------------
+Cross-validation min 0.722
+Cross-validation accuracy 0.789 +/- 0.078
+Training accuracy: 0.976
+
+Overfitting by far
+
+Decision Tree, MSS=80
+---------------------
+Cross-validation min 0.756
+Cross-validation accuracy 0.796 +/- 0.065
+Training accuracy: 0.832
+
+Test acc: 0.73684 (indeed overfit)
+
+Logistic Regression, Sex, Class, Fare, AgeFill (baseline)
+---------------------------------------------------------
+Cross-validation min 0.767
+Cross-validation accuracy 0.794 +/- 0.047
+Training accuracy: 0.800
+
+Logistic Regression, Sex, Class, FareFill, AgeFill
+--------------------------------------------------
+Cross-validation min 0.767
+Cross-validation accuracy 0.796 +/- 0.046
+Training accuracy: 0.800
+
+Only slight improvement
+
+Logistic Regression, Sex, Class, FareFill, AgeFill, EmbarkedNums
+----------------------------------------------------------------
+Cross-validation min 0.722
+Cross-validation accuracy 0.783 +/- 0.071
+Training accuracy: 0.795
+
+Random Forest, MSS 80, Sex, Class, FareFill, AgeFill, EmbarkedNums
+------------------------------------------------------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.801 +/- 0.082
+Training accuracy: 0.826
+
+Random Forest, MSS 80, Sex, Class, FareFill, AgeFill, EmbarkedNums, DeckNum
+---------------------------------------------------------------------------
+Cross-validation min 0.744
+Cross-validation accuracy 0.816 +/- 0.070
+Training accuracy: 0.851
+
+Test acc 0.77512
+
+Random Forest, MSS 80, Sex, Class, FareFill, AgeFill, DeckNum
+-------------------------------------------------------------
+Cross-validation min 0.744
+Cross-validation accuracy 0.807 +/- 0.061
+Training accuracy: 0.856
+
+Dropping the embarkation points cause they didn't help on the leaderboard before.
+It's fitting CV less well and fitting training data better so I doubt this will be good.
+
+Test acc 0.78469, which is an improvement over the previous but not as good as without DeckNum.
+
+Improving missing value imputation
+==================================
+Missing values don't need to be imputed purely from the training set - can use the test set
+as well because those fields are provided.
+
+Random Forest, MSS 80, Sex, Class, FareFill, AgeFill
+----------------------------------------------------
+Cross-validation min 0.744
+Cross-validation accuracy 0.810 +/- 0.069
+Training accuracy: 0.860
+
+Compared to the same table from elsewhere it's an improvement across the board.
+
+Test set acc 0.77990
+
+The test set accuracy is actually worse than just using the training set for this info.

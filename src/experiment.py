@@ -9,74 +9,73 @@ import sklearn.linear_model
 import sklearn.preprocessing
 import sklearn.svm
 import sklearn.tree
+import re
 
-sex_map = {"female": 1, "male": 0}
 
+def transform_features(data, age_pivot_table, fare_pivot_table):
+    data["SexNum"] = data.Sex.factorize()[0]
+    data.Embarked = data.Embarked.fillna(data.Embarked.value_counts().idxmax())
 
-def transform_features(data, ages):
-    data["SexNum"] = data.Sex.map(sex_map).astype(int)
-    # data["EmbarkedS"] = (data.Embarked == "S").astype(int)
-    # data["EmbarkedC"] = (data.Embarked == "C").astype(int)
-    # data["EmbarkedQ"] = (data.Embarked == "Q").astype(int)
+    # embarked_dummies = pandas.get_dummies(data.Embarked, "Embarked")
+    # data = pandas.concat([data, embarked_dummies], axis=1)
 
     data["AgeFill"] = data["Age"]
 
-    for sex in xrange(2):
-        for pass_class in xrange(3):
-            mask = (data.Age.isnull()) & (data.SexNum == sex) & (data.Pclass == pass_class + 1)
-            data.loc[mask, "AgeFill"] = ages[sex, pass_class]
+    for sex in data.Sex.unique():
+        for pass_class in data.Pclass.unique():
+            mask = (data.Age.isnull()) & (data.Sex == sex) & (data.Pclass == pass_class)
+            data.loc[mask, "AgeFill"] = float(age_pivot_table.ix[pass_class, sex])
+
+    data["FareFill"] = data["Fare"]
+    data.loc[data.FareFill == 0, "FareFill"] = None
+    for pclass in data.Pclass.unique():
+        for embarkation_point in data.Embarked.unique():
+            mask = (data.FareFill.isnull()) & (data.Pclass == pclass) & (data.Embarked == embarkation_point)
+            data.loc[mask, "FareFill"] = float(fare_pivot_table.ix[pclass, embarkation_point])
+    data = data.drop(["Fare"], axis=1)
+
+    # deck
+    # data["Deck"] = data.Cabin.str[0:1]
+    # data["DeckNum"] = pandas.factorize(data.Deck)[0]
+    # data = data.drop(["Deck"], axis=1)
 
     #data["AgeIsNull"] = data.Age.isnull().astype(int)
     # data["FamilySize"] = data.SibSp + data.Parch
     #data["Age*Class"] = data.AgeFill * data.Pclass
 
-    data.loc[data.Fare.isnull(), "Fare"] = data.Fare.dropna().median()
 
     data = data.drop(["Name", "Cabin", "Age", "Embarked", "Sex", "Ticket", "PassengerId", "SibSp", "Parch"], axis=1)
     # Sex, Class, Fare
     return data.dropna()
 
+training_data = pandas.read_csv("../data/train.csv", header=0)
+test_data = pandas.read_csv("../data/test.csv", header=0)
+all_data = pandas.concat([training_data, test_data])
 
-def build_age_matrix(data):
-    ages = numpy.zeros((2, 3))
-    reverse_sex_map = {val: key for key, val in sex_map.iteritems()}
-    for sex in xrange(2):
-        for pass_class in xrange(3):
-            mask = (data.Sex == reverse_sex_map[sex]) & (data.Pclass == pass_class + 1)
-            ages[sex, pass_class] = data[mask].Age.dropna().median()
-    return ages
+age_table = all_data.pivot_table(index=["Pclass", "Sex"], values=["Age"], aggfunc=numpy.median)
+fare_table = training_data.pivot_table(index=["Pclass", "Embarked"], values=["Fare"], aggfunc=numpy.median)
 
+training_data = transform_features(training_data, age_table, fare_table)
+# print training_data.info()
+training_data_values = training_data.values
 
-data = pandas.read_csv("../data/train.csv", header=0)
-
-ages = build_age_matrix(data)
-
-data = transform_features(data, ages)
-training_data = data.values
-
-classifier = sklearn.ensemble.RandomForestClassifier(100, max_features=None, min_samples_leaf=3, random_state=13)
-#classifier = sklearn.linear_model.LogisticRegression(C=10.)
+classifier = sklearn.ensemble.RandomForestClassifier(100, max_features=None, min_samples_split=40, random_state=13)
 
 # cross-validate the classifier
-split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_data[:, 0], n_iter=10, random_state=4)
-cv_scores = sklearn.cross_validation.cross_val_score(classifier, training_data[:, 1:], training_data[:, 0], cv=split_iterator)
+split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_data_values[:, 0], n_iter=10, random_state=4)
+cv_scores = sklearn.cross_validation.cross_val_score(classifier, training_data_values[:, 1:], training_data_values[:, 0], cv=split_iterator)
 print "Cross-validation min {:.3f}".format(cv_scores.min())
 print "Cross-validation accuracy {:.3f} +/- {:.3f}".format(cv_scores.mean(), cv_scores.std() * 2)
 # print cv_scores
 
 # train the classifier
-classifier.fit(training_data[:, 1:], training_data[:, 0])
-training_predictions = classifier.predict(training_data[:, 1:])
-diffs = training_predictions - training_data[:, 0]
+classifier.fit(training_data_values[:, 1:], training_data_values[:, 0])
+training_predictions = classifier.predict(training_data_values[:, 1:])
+diffs = training_predictions - training_data_values[:, 0]
 print "Training accuracy: {:.3f}".format(1. - numpy.abs(diffs).mean())
 
-print data.info()
-# print "Weights", zip(data.columns[1:].values, classifier.coef_[0,:])
-
-
-test_data = pandas.read_csv("../data/test.csv", header=0)
 ids = test_data.PassengerId.values
-test_data = transform_features(test_data, ages)
+test_data = transform_features(test_data, age_table, fare_table)
 
 test_predictions = classifier.predict(test_data.values)
 
