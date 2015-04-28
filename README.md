@@ -277,3 +277,26 @@ Compared to the same table from elsewhere it's an improvement across the board.
 Test set acc 0.77990
 
 The test set accuracy is actually worse than just using the training set for this info.
+
+Title counts from all data
+--------------------------
+Mr              757
+Miss            260
+Mrs             197
+Master           61
+Rev               8
+Dr                8
+
+Col               4
+Major             2
+Mlle              2
+Ms                2
+Mme               1
+the Countess      1
+Don               1
+Lady              1
+Sir               1
+Jonkheer          1
+Dona              1
+Capt              1
+
