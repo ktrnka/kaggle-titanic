@@ -300,3 +300,90 @@ Jonkheer          1
 Dona              1
 Capt              1
 
+Imputing age from title
+-----------------------
+Previously we predicted median(age | Pclass, Sex).
+Now it's median(age | Pclass, Title) which backs off to median(age | Title)
+because not all Pclass-Title combinations are encountered in the data.
+
+Cross-validation min 0.733
+Cross-validation accuracy 0.802 +/- 0.080
+Training accuracy: 0.822
+
+Compared to the previous experiment every single number has gone down.
+
+Test set acc 0.77990 (identical)
+
+Decrease min samples split to 10
+--------------------------------
+Cross-validation min 0.756
+Cross-validation accuracy 0.822 +/- 0.071
+Training accuracy: 0.910
+
+Increase trees to 500
+---------------------
+Cross-validation min 0.756
+Cross-validation accuracy 0.821 +/- 0.068
+Training accuracy: 0.908
+
+Test acc 0.76077
+
+100 trees, MSS 80, max features n-1
+-----------------------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.812 +/- 0.089
+Training accuracy: 0.828
+
+Test acc 0.77512 (actually worse)
+
+100 trees, MSS 80, max features n-2, oob score
+-----------------------------------
+Cross-validation min 0.744
+Cross-validation accuracy 0.820 +/- 0.082
+Training accuracy: 0.833
+
+Test acc 0.77033 (worse still!)
+
+Refactoring to clean the unified matrix
+=======================================
+
+First test, 100 trees, MSS 80
+-----------------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.802 +/- 0.080
+Training accuracy: 0.822
+
+Test acc 0.77990
+
+Convert to fare per person
+--------------------------
+Cross-validation min 0.722
+Cross-validation accuracy 0.797 +/- 0.077
+Training accuracy: 0.817
+
+Test acc 0.75120
+
+Impute fare per person then compute farefill
+--------------------------------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.802 +/- 0.080
+Training accuracy: 0.822
+
+(No difference from the refactor output)
+Test acc 0.77990 (same as previous)
+
+Same but 500 trees
+------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.803 +/- 0.082
+Training accuracy: 0.818
+
+Test acc 0.77990
+
+100 trees, n-1 features
+-----------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.812 +/- 0.080
+Training accuracy: 0.829
+
+Test acc 0.77033

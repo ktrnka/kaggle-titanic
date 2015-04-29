@@ -34,81 +34,87 @@ def extract_title(name):
     return None
 
 
-def transform_features(data, age_by_title, age_by_pclass_title, fare_pivot_table):
-    data["SexNum"] = data.Sex.factorize()[0]
+def transform_features(data):
+    data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "PassengerId", "SibSp", "Parch", "FamilySize"], axis=1)
+    return data.drop("Survived", axis=1).values, data.Survived.values
+
+def clean_data(data):
     data.Embarked = data.Embarked.fillna(data.Embarked.value_counts().idxmax())
+    data["Title"] = data.Name.map(extract_title)
+
+    data["SexNum"] = data.Sex.factorize()[0]
+    data.drop("Sex", axis=1, inplace=True)
+
+    data["FamilySize"] = data.SibSp + data.Parch + 1
+    data["FarePerPerson"] = data.Fare / data.FamilySize
+
+
+    # clean up the Fare column
+    fare_by_class_embarked = data.pivot_table(index=["Pclass", "Embarked"], values=["FarePerPerson"], aggfunc=numpy.median)
+    data["FarePerPersonFill"] = data.FarePerPerson
+    data.loc[data.FarePerPersonFill == 0, "FarePerPersonFill"] = None
+    for pclass in data.Pclass.unique():
+        for embarkation_point in data.Embarked.unique():
+            mask = (data.FarePerPersonFill.isnull()) & (data.Pclass == pclass) & (data.Embarked == embarkation_point)
+            data.loc[mask, "FarePerPersonFill"] = float(fare_by_class_embarked.ix[pclass, embarkation_point])
+    data["FareFill"] = data.FarePerPersonFill * data.FamilySize
+    data.drop(["Fare", "FarePerPerson", "FarePerPersonFill"], axis=1, inplace=True)
+
+    # clean up the Age column
+    age_by_title = data.pivot_table(index=["Title"], values=["Age"], aggfunc=numpy.median)
+    age_by_pclass_title = data.pivot_table(index=["Pclass", "Title"], values=["Age"], aggfunc=numpy.median)
+
+    data["AgeFill"] = data["Age"]
+    for title in data.Title.unique():
+        for pclass in data.Pclass.unique():
+            mask = (data.Age.isnull()) & (data.Title == title) & (data.Pclass == pclass)
+            try:
+                data.loc[mask, "AgeFill"] = float(age_by_pclass_title.ix[pclass, title])
+            except KeyError:
+                data.loc[mask, "AgeFill"] = float(age_by_title.ix[title])
+    data.drop("Age", axis=1, inplace=True)
+    data.drop("Title", axis=1, inplace=True)
 
     # embarked_dummies = pandas.get_dummies(data.Embarked, "Embarked")
     # data = pandas.concat([data, embarked_dummies], axis=1)
 
-    data["Title"] = data.Name.map(extract_title)
-    data["AgeFill"] = data["Age"]
 
-    for title in data.Title.unique():
-        for pass_class in data.Pclass.unique():
-            mask = (data.Age.isnull()) & (data.Title == title) & (data.Pclass == pass_class)
-            try:
-                data.loc[mask, "AgeFill"] = float(age_by_pclass_title.ix[pass_class, title])
-            except KeyError:
-                data.loc[mask, "AgeFill"] = float(age_by_title.ix[title])
-    data = data.drop(["Title"], axis=1)
-
-    data["FareFill"] = data["Fare"]
-    data.loc[data.FareFill == 0, "FareFill"] = None
-    for pclass in data.Pclass.unique():
-        for embarkation_point in data.Embarked.unique():
-            mask = (data.FareFill.isnull()) & (data.Pclass == pclass) & (data.Embarked == embarkation_point)
-            data.loc[mask, "FareFill"] = float(fare_pivot_table.ix[pclass, embarkation_point])
-    data = data.drop(["Fare"], axis=1)
 
     # deck
     # data["Deck"] = data.Cabin.str[0:1]
     # data["DeckNum"] = pandas.factorize(data.Deck)[0] # This might be dangerous cause it'll factorize differently per set
     # data = data.drop(["Deck"], axis=1)
 
-    # data["AgeIsNull"] = data.Age.isnull().astype(int)
-    # data["FamilySize"] = data.SibSp + data.Parch
-    # data["Age*Class"] = data.AgeFill * data.Pclass
-
-
-    data = data.drop(["Name", "Cabin", "Age", "Embarked", "Sex", "Ticket", "PassengerId", "SibSp", "Parch"], axis=1)
-    # Sex, Class, Fare
-    return data.dropna()
-
 
 training_data = pandas.read_csv("../data/train.csv", header=0)
 test_data = pandas.read_csv("../data/test.csv", header=0)
 all_data = pandas.concat([training_data, test_data])
-all_data["Title"] = all_data.Name.map(extract_title)
 
-age_by_title = all_data.pivot_table(index=["Title"], values=["Age"], aggfunc=numpy.median)
-age_by_pclass_title = all_data.pivot_table(index=["Pclass", "Title"], values=["Age"], aggfunc=numpy.median)
-fare_table = training_data.pivot_table(index=["Pclass", "Embarked"], values=["Fare"], aggfunc=numpy.median)
+clean_data(all_data)
 
-training_data = transform_features(training_data, age_by_title, age_by_pclass_title, fare_table)
-# print training_data.info()
-training_data_values = training_data.values
+training_data = all_data[all_data.Survived.notnull()]
+test_data = all_data[all_data.Survived.isnull()]
 
-classifier = sklearn.ensemble.RandomForestClassifier(100, max_features=None, min_samples_split=40, random_state=13)
+training_x, training_y = transform_features(training_data)
+
+classifier = sklearn.ensemble.RandomForestClassifier(100, max_features=training_x.shape[1]-1, min_samples_split=80, random_state=13, oob_score=True)
 
 # cross-validate the classifier
-split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_data_values[:, 0], n_iter=10, random_state=4)
-cv_scores = sklearn.cross_validation.cross_val_score(classifier, training_data_values[:, 1:],
-                                                     training_data_values[:, 0], cv=split_iterator)
+split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, n_iter=10, random_state=4)
+cv_scores = sklearn.cross_validation.cross_val_score(classifier, training_x, training_y, cv=split_iterator)
 print "Cross-validation min {:.3f}".format(cv_scores.min())
 print "Cross-validation accuracy {:.3f} +/- {:.3f}".format(cv_scores.mean(), cv_scores.std() * 2)
 # print cv_scores
 
 # train the classifier
-classifier.fit(training_data_values[:, 1:], training_data_values[:, 0])
-training_predictions = classifier.predict(training_data_values[:, 1:])
-diffs = training_predictions - training_data_values[:, 0]
+classifier.fit(training_x, training_y)
+training_predictions = classifier.predict(training_x)
+diffs = training_predictions - training_y
 print "Training accuracy: {:.3f}".format(1. - numpy.abs(diffs).mean())
 
 ids = test_data.PassengerId.values
-test_data = transform_features(test_data, age_by_title, age_by_pclass_title, fare_table)
-
-test_predictions = classifier.predict(test_data.values)
+test_x, _ = transform_features(test_data)
+test_predictions = classifier.predict(test_x)
 
 with io.open("../data/forest_current.csv", "wb") as csv_out:
     csv_writer = csv.writer(csv_out)
