@@ -35,11 +35,16 @@ def extract_title(name):
 
 
 def transform_features(data):
-    data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "PassengerId", "SibSp", "Parch", "FamilySize"], axis=1)
+    data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "PassengerId", "FamilySize"], axis=1)
+    data.info()
     return data.drop("Survived", axis=1).values, data.Survived.values
 
 def clean_data(data):
     data.Embarked = data.Embarked.fillna(data.Embarked.value_counts().idxmax())
+    embarked_dummies = pandas.get_dummies(data.Embarked, "Embarked")
+    for col in embarked_dummies.columns:
+        data[col] = embarked_dummies[col]
+
     data["Title"] = data.Name.map(extract_title)
 
     data["SexNum"] = data.Sex.factorize()[0]
@@ -47,7 +52,6 @@ def clean_data(data):
 
     data["FamilySize"] = data.SibSp + data.Parch + 1
     data["FarePerPerson"] = data.Fare / data.FamilySize
-
 
     # clean up the Fare column
     fare_by_class_embarked = data.pivot_table(index=["Pclass", "Embarked"], values=["FarePerPerson"], aggfunc=numpy.median)
@@ -73,12 +77,9 @@ def clean_data(data):
             except KeyError:
                 data.loc[mask, "AgeFill"] = float(age_by_title.ix[title])
     data.drop("Age", axis=1, inplace=True)
+
+    data["TitleNum"] = data.Title.factorize()[0]
     data.drop("Title", axis=1, inplace=True)
-
-    # embarked_dummies = pandas.get_dummies(data.Embarked, "Embarked")
-    # data = pandas.concat([data, embarked_dummies], axis=1)
-
-
 
     # deck
     # data["Deck"] = data.Cabin.str[0:1]
@@ -94,10 +95,11 @@ clean_data(all_data)
 
 training_data = all_data[all_data.Survived.notnull()]
 test_data = all_data[all_data.Survived.isnull()]
+training_data.info()
 
 training_x, training_y = transform_features(training_data)
 
-classifier = sklearn.ensemble.RandomForestClassifier(100, max_features=training_x.shape[1]-1, min_samples_split=80, random_state=13, oob_score=True)
+classifier = sklearn.ensemble.RandomForestClassifier(100, max_features=None, min_samples_split=20, random_state=13, oob_score=True)
 
 # cross-validate the classifier
 split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, n_iter=10, random_state=4)

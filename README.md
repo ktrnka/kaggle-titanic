@@ -387,3 +387,37 @@ Cross-validation accuracy 0.812 +/- 0.080
 Training accuracy: 0.829
 
 Test acc 0.77033
+
+100 trees, all features including embarked
+------------------------------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.804 +/- 0.081
+Training accuracy: 0.820
+
+same with title as number
+-------------------------
+Cross-validation min 0.756
+Cross-validation accuracy 0.814 +/- 0.078
+Training accuracy: 0.840
+
+same with FamilySize
+--------------------
+Cross-validation min 0.733
+Cross-validation accuracy 0.813 +/- 0.083
+Training accuracy: 0.840
+
+same with SibSp, Parch instead of FamilySize
+--------------------------------------------
+Cross-validation min 0.756
+Cross-validation accuracy 0.816 +/- 0.080
+Training accuracy: 0.841
+
+Test acc 0.78469
+
+same with MSS 20
+----------------
+Cross-validation min 0.800
+Cross-validation accuracy 0.843 +/- 0.064
+Training accuracy: 0.888
+
+Test acc ??? (need to wait a couple hours)
