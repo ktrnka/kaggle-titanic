@@ -421,3 +421,50 @@ Cross-validation accuracy 0.843 +/- 0.064
 Training accuracy: 0.888
 
 Test acc ??? (need to wait a couple hours)
+
+Hyperparameter tuning
+=====================
+With current feature set this is the best I get
+Validation score 0.843
+Params {'max_features': None, 'min_samples_split': 20, 'min_samples_leaf': 1, 'criterion': 'gini', 'n_estimators': 100}
+
+If I remove the title and embarked features, I get
+Validation score 0.840
+Params {'max_features': 2, 'min_samples_split': 20, 'min_samples_leaf': 1, 'criterion': 'gini', 'n_estimators': 100}
+
+I took the gini/entropy and num trees out of the equation
+
+With the deck factorized and cabin number
+-----------------------------------------
+Deck alone didn't do much of anything.  Cabin number is interesting
+but mostly the value is missing.
+
+Cross-validation min 0.800
+Cross-validation accuracy 0.846 +/- 0.059
+Hyperparameter tuning
+Validation score 0.838
+Params {'max_features': 11, 'min_samples_split': 10, 'min_samples_leaf': 1}
+
+So it may help but it's tough to say.
+
+With FarePerPersonFill again
+----------------------------
+Cross-validation min 0.789
+Cross-validation accuracy 0.839 +/- 0.064
+Hyperparameter tuning
+Validation score 0.836
+Params {'max_features': 10, 'min_samples_split': 20, 'min_samples_leaf': 4}
+
+Should I use the stratified shuffle split on hyperparam opt?
+------------------------------------------------------------
+Trying on the same FarePerPersonFill run
+
+Cross-validation min 0.800
+Cross-validation accuracy 0.846 +/- 0.059
+Hyperparameter tuning
+Validation score 0.843
+Params {'max_features': 11, 'min_samples_split': 20, 'min_samples_leaf': 1}
+
+Doesn't make a difference in the model selected.
+
+Test acc 0.78469 which is good-ish
