@@ -1,6 +1,7 @@
 import io
 import csv
 from operator import itemgetter
+import sys
 
 import pandas
 import numpy
@@ -60,6 +61,42 @@ def transform_features(data):
     data.info()
     return data.drop("Survived", axis=1).values, data.Survived.values
 
+def fill_age(data, evaluate=True):
+    age_data = data[["Age", "Embarked_C", "Embarked_S", "Embarked_Q", "TitleNum", "DeckNum", "CabinNum", "SexNum", "NamesNum", "SibSp", "Parch", "Pclass"]]
+    # age_data = data[["Age", "TitleNum", "Pclass"]]
+
+    age_known = age_data[age_data.Age.notnull()]
+    age_unknown = age_data[age_data.Age.isnull()]
+
+    X = age_known.drop("Age", axis=1).values
+    y = age_known.Age.values
+
+    reg = sklearn.ensemble.RandomForestRegressor(100, n_jobs=-1, random_state=3, oob_score=True)
+    reg.fit(X, y)
+
+    split_iterator = sklearn.cross_validation.ShuffleSplit(y.shape[0], n_iter=10, random_state=4)
+    cv_scores = sklearn.cross_validation.cross_val_score(reg, X, y, cv=split_iterator)
+    print "[Age] Cross-validation accuracy {:.3f} +/- {:.3f}".format(cv_scores.mean(), cv_scores.std() * 2)
+
+    random_params = {
+        "max_features": [None, "sqrt", 0.5, 0.8],
+        "min_samples_split": [10, 20, 30, 40]
+    }
+
+    reg = sklearn.grid_search.GridSearchCV(reg, random_params, n_jobs=-1, cv=split_iterator, refit=True)
+    reg.fit(X, y)
+    for test in sorted(reg.grid_scores_, key=itemgetter(1), reverse=True):
+        print "[Age] Validation score {:.3f}".format(test.mean_validation_score)
+        print "[Age] Params", test.parameters
+        print ""
+
+
+    sys.exit(0)
+
+    predicted = reg.predict(age_unknown.drop("Age", axis=1).values)
+    data["AgeFill"] = data.Age
+    data.loc[data.AgeFill.isnull(), "AgeFill"] = predicted
+
 def clean_data(data):
     data.Embarked = data.Embarked.fillna(data.Embarked.value_counts().idxmax())
     embarked_dummies = pandas.get_dummies(data.Embarked, "Embarked")
@@ -67,6 +104,7 @@ def clean_data(data):
         data[col] = embarked_dummies[col]
 
     data["Title"] = data.Name.map(extract_title)
+    data["NamesNum"] = data.Name.map(lambda n: len(n.split()))
 
     data["SexNum"] = data.Sex.factorize()[0]
     data.drop("Sex", axis=1, inplace=True)
@@ -83,21 +121,7 @@ def clean_data(data):
             mask = (data.FarePerPersonFill.isnull()) & (data.Pclass == pclass) & (data.Embarked == embarkation_point)
             data.loc[mask, "FarePerPersonFill"] = float(fare_by_class_embarked.ix[pclass, embarkation_point])
     data["FareFill"] = data.FarePerPersonFill * data.FamilySize
-    data.drop(["Fare", "FarePerPerson", "FarePerPersonFill"], axis=1, inplace=True)
-
-    # clean up the Age column
-    age_by_title = data.pivot_table(index=["Title"], values=["Age"], aggfunc=numpy.median)
-    age_by_pclass_title = data.pivot_table(index=["Pclass", "Title"], values=["Age"], aggfunc=numpy.median)
-
-    data["AgeFill"] = data["Age"]
-    for title in data.Title.unique():
-        for pclass in data.Pclass.unique():
-            mask = (data.Age.isnull()) & (data.Title == title) & (data.Pclass == pclass)
-            try:
-                data.loc[mask, "AgeFill"] = float(age_by_pclass_title.ix[pclass, title])
-            except KeyError:
-                data.loc[mask, "AgeFill"] = float(age_by_title.ix[title])
-    data.drop("Age", axis=1, inplace=True)
+    data.drop(["Fare", "FarePerPerson"], axis=1, inplace=True)
 
     data["TitleNum"] = data.Title.factorize()[0]
     data.drop("Title", axis=1, inplace=True)
@@ -110,6 +134,10 @@ def clean_data(data):
 
     # front/back of boat
     data["CabinNum"] = data.Cabin.map(extract_cabin_number)
+
+    # clean up the Age column
+    fill_age(data)
+    data.drop("Age", axis=1, inplace=True)
 
 training_data = pandas.read_csv("../data/train.csv", header=0)
 test_data = pandas.read_csv("../data/test.csv", header=0)
@@ -134,13 +162,13 @@ print "Cross-validation accuracy {:.3f} +/- {:.3f}".format(cv_scores.mean(), cv_
 # print cv_scores
 
 print "Hyperparameter tuning"
-base_classifier = sklearn.ensemble.RandomForestClassifier(100, oob_score=True)
+base_classifier = sklearn.ensemble.RandomForestClassifier(100, oob_score=True, random_state=13)
 random_params = {
-    "max_features": [None, "sqrt", training_x.shape[1]-1, training_x.shape[1]-2, training_x.shape[1]-3],
-    "min_samples_split": [10, 20, 30, 40, 50, 60, 70, 80],
-    "min_samples_leaf": [1, 2, 4, 8]
+    "max_features": [None, "sqrt", 0.5, training_x.shape[1]-1, training_x.shape[1]-2, training_x.shape[1]-3, training_x.shape[1]-4],
+    "min_samples_split": [20, 30, 40, 50, 60, 70, 80],
+    "min_samples_leaf": [1, 2]
 }
-tuned_classifier = sklearn.grid_search.RandomizedSearchCV(base_classifier, random_params, n_jobs=-1, cv=split_iterator, n_iter=100, refit=True)
+tuned_classifier = sklearn.grid_search.GridSearchCV(base_classifier, random_params, n_jobs=-1, cv=split_iterator, refit=True)
 tuned_classifier.fit(training_x, training_y)
 for test in sorted(tuned_classifier.grid_scores_, key=itemgetter(1), reverse=True):
     print "Validation score {:.3f}".format(test.mean_validation_score)
@@ -161,3 +189,4 @@ with io.open("../data/forest_current.csv", "wb") as csv_out:
     csv_writer = csv.writer(csv_out)
     csv_writer.writerow(["PassengerId", "Survived"])
     csv_writer.writerows(zip(ids, test_predictions.astype(int)))
+

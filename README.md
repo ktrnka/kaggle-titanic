@@ -464,7 +464,76 @@ Cross-validation accuracy 0.846 +/- 0.059
 Hyperparameter tuning
 Validation score 0.843
 Params {'max_features': 11, 'min_samples_split': 20, 'min_samples_leaf': 1}
+...
+Training accuracy: 0.889
 
 Doesn't make a difference in the model selected.
 
-Test acc 0.78469 which is good-ish
+Test acc 0.78469 which is good-ish. The graph of cross-validation accuracy vs test acc 
+shows that they're correlated after the code refactor so there must've been a horrible bug before.
+
+Retain Fare=0
+-------------
+I've been assuming that when fare is zero that's an error but it could actually be good info.
+
+Cross-validation min 0.811
+Cross-validation accuracy 0.844 +/- 0.057
+Hyperparameter tuning
+Validation score 0.850
+Params {'max_features': 10, 'min_samples_split': 10, 'min_samples_leaf': 2}
+...
+Training accuracy: 0.907
+
+So it looks like it might be better to leave it in.
+
+Test acc 0.77033
+
+Adding the number of names, switching to grid search
+----------------------------------------------------
+Cross-validation min 0.789
+Cross-validation accuracy 0.831 +/- 0.049
+
+Validation score 0.841
+Params {'max_features': 10, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Training accuracy: 0.891
+
+It doesn't improve the validation score at all even with hyperparam tuning.
+
+Adding n-4 as max features option
+---------------------------------
+While doing this I learned that the tests weren't deterministic in part because they
+didn't have a random seed set on the forest classifier used in the hyperparameter search.
+
+Validation score 0.838
+Params {'max_features': 12, 'min_samples_split': 20, 'min_samples_leaf': 2}
+
+Adding back FarePerPerson
+-------------------------
+Cross-validation min 0.789
+Cross-validation accuracy 0.831 +/- 0.054
+
+Validation score 0.842
+Params {'max_features': 11, 'min_samples_split': 20, 'min_samples_leaf': 1}
+
+It seems to help slightly in conjunction with dropping features.
+
+Using regression to fill in age
+-------------------------------
+
+Cross-validation min 0.778
+Cross-validation accuracy 0.828 +/- 0.059
+
+Validation score 0.836
+Params {'max_features': 11, 'min_samples_split': 30, 'min_samples_leaf': 2}
+
+Training accuracy: 0.883
+
+Seems to be much worse but could be generalizing better?
+
+Test acc 0.79426 (best yet of the random forest solutions)
+
+Improving AgeFill regression
+----------------------------
+The fill_age function can now do cross-validation runs and hyperparameter
+tuning. Hyperparameter tuning is fairly important here to prevent overfitting.
+Mostly it tunes the number of features and MSS.
