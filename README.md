@@ -518,7 +518,7 @@ Params {'max_features': 11, 'min_samples_split': 20, 'min_samples_leaf': 1}
 It seems to help slightly in conjunction with dropping features.
 
 Using regression to fill in age
--------------------------------
+===============================
 
 Cross-validation min 0.778
 Cross-validation accuracy 0.828 +/- 0.059
@@ -536,4 +536,315 @@ Improving AgeFill regression
 ----------------------------
 The fill_age function can now do cross-validation runs and hyperparameter
 tuning. Hyperparameter tuning is fairly important here to prevent overfitting.
-Mostly it tunes the number of features and MSS.
+Mostly it tunes the number of features and MSS so then I restricted the search to that.
+
+[Age] Cross-validation accuracy 0.412 +/- 0.154
+Age hyperparameter tuning
+Validation score 0.448, Hyperparams {'max_features': 0.8, 'min_samples_split': 30}
+
+The untuned result didn't set MSS or max features.
+
+Now trying a tuning run that varies the number of trees used (probably won't make much difference).
+Age hyperparameter tuning
+Validation score 0.448, Hyperparams {'max_features': 0.8, 'min_samples_split': 30, 'n_estimators': 1000}
+Validation score 0.448, Hyperparams {'max_features': 0.8, 'min_samples_split': 30, 'n_estimators': 100}
+
+Only slightly better, not worth.
+
+System with a tuned AgeFill regressor
+-------------------------------------
+Age untuned: 0.412 +/- 0.154
+Age tuned: Validation score 0.448, Hyperparams {'max_features': 0.8, 'min_samples_split': 30}
+
+Overall
+Validation score 0.837, Hyperparams {'max_features': 11, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Validation score 0.837, Hyperparams {'max_features': 10, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Validation score 0.836, Hyperparams {'max_features': 0.5, 'min_samples_split': 30, 'min_samples_leaf': 2}
+Training accuracy: 0.899
+
+Test accuracy 0.78469
+
+Switching from StratifiedShuffleSplit to ShuffleSplit
+=====================================================
+Validation score 0.847, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 2}
+
+I wonder if this will generalize better to testing data without the exact survival ratio.
+
+Test accuracy 0.78469 (no change)
+
+Cabin work
+==========
+Supposedly odd and even cabin numbers correlated to the side of the boat.
+
+Upon looking into this I realized that setting unknown cabins to U0 actually hurts
+me because I'd lump all of those people in with evens.  When splitting it out
+by survival clearly odd-side had a higher survival than even side and unknown had
+a considerably lower survival rate.
+
+CabinKnown
+----------
+Dedicated feature for whether the cabin was null or not.
+
+Validation score 0.834, Hyperparams {'max_features': 12, 'min_samples_split': 40, 'min_samples_leaf': 2}
+
+Generally this seems to be worse but it could be because it's already a fixed value in DeckNum and CabinNum
+
+ShipSide, -1, even, odd
+-----------------------
+Separating unknowns into -1 instead of lumping them with evens.
+
+Validation score 0.834, Hyperparams {'max_features': 12, 'min_samples_split': 20, 'min_samples_leaf': 2}
+
+CabinKnown plus ShipSide
+------------------------
+Validation score 0.838, Hyperparams {'max_features': 14, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Training accuracy: 0.891
+
+DeckNum sort for factorization
+------------------------------
+Slight improvement on age prediction.
+[Age] Cross-validation accuracy 0.404 +/- 0.160
+Age hyperparameter tuning
+Validation score 0.449, Hyperparams {'max_features': 0.5, 'min_samples_split': 10}
+
+No diff for regular:
+Validation score 0.837, Hyperparams {'max_features': 12, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Training accuracy: 0.895
+
+Reverting cause it's not 100% clear what it's doing.
+
+FarePerPersonFill_bin
+---------------------
+Validation score 0.838, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Training accuracy: 0.893
+
+Slight help
+
+With FareFill_bin (5) and AgeFill_bin (10)
+------------------------------------------
+Validation score 0.837, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Training accuracy: 0.895
+
+Dropping CabinNum
+-----------------
+Age Validation score 0.450, Hyperparams {'max_features': 0.5, 'min_samples_split': 20}
+Main Validation score 0.836, Hyperparams {'max_features': 14, 'min_samples_split': 20, 'min_samples_leaf': 1}
+
+With CabinNum back in
+---------------------
+Data columns: AgeFill, AgeFill_bin, CabinKnown, CabinNum, DeckNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, FareFill_bin, FarePerPersonFill, FarePerPersonFill_bin, NamesNum, Parch, Pclass, SexNum, ShipSide, SibSp, Survived, TitleNum
+Validation score 0.837, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Validation score 0.837, Hyperparams {'max_features': 16, 'min_samples_split': 20, 'min_samples_leaf': 2}
+
+Test acc 0.78469
+
+top was titlenum
+ ('SexNum', 0.20474806226900688),
+ ('FarePerPersonFill', 0.085249963535382473),
+ ('FareFill', 0.084631672540314076),
+ ('AgeFill', 0.083165138674732741),
+ ('Pclass', 0.072704031013514164),
+ ('CabinNum', 0.034360073580464362),
+ ('AgeFill_bin', 0.030312032284063851),
+ ('NamesNum', 0.029878442153774082),
+ ('SibSp', 0.028651725115886616),
+ ('FarePerPersonFill_bin', 0.017344837599550408),
+ ('DeckNum', 0.017054923541919686),
+ ('Embarked_S', 0.012608286868506008),
+ ('CabinKnown', 0.010330982834394755),
+ ('FareFill_bin', 0.0092749553396701667),
+ ('ShipSide', 0.0074096144108947585),
+ ('Embarked_C', 0.0065553342407457882),
+ ('Parch', 0.0053137484980093977),
+ ('Embarked_Q', 0.004201448808146606)]
+
+Adding parameters for missing values
+------------------------------------
+FareMissing, AgeMissing
+
+Validation score 0.838, Hyperparams {'max_features': 18, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Validation score 0.837, Hyperparams {'max_features': 18, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Validation score 0.836, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Training accuracy: 0.898
+
+[('TitleNum', 0.28852919989873849),
+ ('SexNum', 0.19187323727415084),
+ ('AgeFill', 0.093645394585899239),
+ ('Pclass', 0.09271001168317021),
+ ('FarePerPersonFill', 0.090254693459447491),
+ ('FareFill', 0.081196138964661199),
+ ('CabinNum', 0.03234140492445281),
+ ('NamesNum', 0.024027896737747179),
+ ('SibSp', 0.023771289663853404),
+ ('AgeFill_bin', 0.020340871089120881),
+ ('FarePerPersonFill_bin', 0.014314057746875995),
+ ('Embarked_S', 0.011540422679047093),
+ ('FareFill_bin', 0.0059318034136921658),
+ ('Embarked_C', 0.0058050497118136511),
+ ('ShipSide', 0.0057531911589752526),
+ ('DeckNum', 0.005489411673620259),
+ ('Parch', 0.0035903110580161267),
+ ('Embarked_Q', 0.0028349128789787893),
+ ('AgeMissing', 0.0026291766098801585),
+ ('FareMissing', 0.0025317194696012502),
+ ('CabinKnown', 0.00088980531825742781)]
+
+Trimming down to almost original features
+-----------------------------------------
+TitleNum, SexNum, AgeFill, Pclass, FarePerPersonFill
+
+Validation score 0.837, Hyperparams {'max_features': 1, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Validation score 0.836, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 20, 'min_samples_leaf': 2}
+Validation score 0.836, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 2}
+
+[('TitleNum', 0.25298124711186981),
+ ('SexNum', 0.24877287254740249),
+ ('FarePerPersonFill', 0.20878907113430106),
+ ('AgeFill', 0.17879464348682816),
+ ('Pclass', 0.11066216571959853)]
+Training accuracy: 0.874
+
+Test acc 0.76077
+
+Current (just checking)
+----------------------
+Data columns: AgeFill, AgeFill_bin, AgeMissing, CabinKnown, CabinNum, DeckNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, FareFill_bin, FareMissing, FarePerPersonFill, FarePerPersonFill_bin, NamesNum, Parch, Pclass, SexNum, ShipSide, SibSp, Survived, TitleNum
+
+Validation score 0.838, Hyperparams {'max_features': 18, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Validation score 0.837, Hyperparams {'max_features': 18, 'min_samples_split': 20, 'min_samples_leaf': 2}
+
+[('TitleNum', 0.28852919989873849),
+ ('SexNum', 0.19187323727415084),
+ ('AgeFill', 0.093645394585899239),
+ ('Pclass', 0.09271001168317021),
+ ('FarePerPersonFill', 0.090254693459447491),
+ ('FareFill', 0.081196138964661199),
+ ('CabinNum', 0.03234140492445281),
+ ('NamesNum', 0.024027896737747179),
+ ('SibSp', 0.023771289663853404),
+ ('AgeFill_bin', 0.020340871089120881),
+ ('FarePerPersonFill_bin', 0.014314057746875995),
+ ('Embarked_S', 0.011540422679047093),
+ ('FareFill_bin', 0.0059318034136921658),
+ ('Embarked_C', 0.0058050497118136511),
+ ('ShipSide', 0.0057531911589752526),
+ ('DeckNum', 0.005489411673620259),
+ ('Parch', 0.0035903110580161267),
+ ('Embarked_Q', 0.0028349128789787893),
+ ('AgeMissing', 0.0026291766098801585),
+ ('FareMissing', 0.0025317194696012502),
+ ('CabinKnown', 0.00088980531825742781)]
+Training accuracy: 0.898
+
+Dropping Deck G and T
+---------------------
+Deck G has hundreds of berths but only 5 people in the data so it may contribute to sparseness.
+Deck T has only 1 person.
+
+Validation score 0.838, Hyperparams {'max_features': 18, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Validation score 0.837, Hyperparams {'max_features': 18, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Validation score 0.836, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+
+ ('SexNum', 0.19187323727415084),
+ ('AgeFill', 0.093645394585899239),
+ ('Pclass', 0.09271001168317021),
+ ('FarePerPersonFill', 0.090254693459447491),
+ ('FareFill', 0.081196138964661199),
+ ('CabinNum', 0.03234140492445281),
+ ('NamesNum', 0.024027896737747179),
+ ('SibSp', 0.023771289663853404),
+ ('AgeFill_bin', 0.020340871089120881),
+ ('FarePerPersonFill_bin', 0.014314057746875995),
+ ('Embarked_S', 0.011540422679047093),
+ ('FareFill_bin', 0.0059318034136921658),
+ ('Embarked_C', 0.0058050497118136511),
+ ('ShipSide', 0.0057531911589752526),
+ ('DeckNum', 0.005489411673620259),
+ ('Parch', 0.0035903110580161267),
+ ('Embarked_Q', 0.0028349128789787893),
+ ('AgeMissing', 0.0026291766098801585),
+ ('FareMissing', 0.0025317194696012502),
+ ('CabinKnown', 0.00088980531825742781)]
+Training accuracy: 0.898
+
+Dropping those values makes no difference at all.
+
+Dealing with deck issues by set of booleans
+-------------------------------------------
+I wanted to replace but the deck is used by AgeFill and I got lazy.
+
+Validation score 0.837, Hyperparams {'max_features': 26, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Validation score 0.836, Hyperparams {'max_features': 29, 'min_samples_split': 20, 'min_samples_leaf': 2}
+
+[('TitleNum', 0.30822693057044803),
+ ('SexNum', 0.18220918236472353),
+ ('Pclass', 0.093103457852434665),
+ ('AgeFill', 0.091649154013464018),
+ ('FarePerPersonFill', 0.090941310630972175),
+ ('FareFill', 0.075879814613958013),
+ ('CabinNum', 0.02778511920250764),
+ ('SibSp', 0.025134475570430647),
+ ('NamesNum', 0.022748698497516037),
+ ('AgeFill_bin', 0.017904817521553734),
+ ('FarePerPersonFill_bin', 0.017032018299677088),
+ ('Embarked_S', 0.011362753118255804),
+ ('FareFill_bin', 0.0055175255158318101),
+ ('Embarked_C', 0.005103451010616664),
+ ('ShipSide', 0.0036378691338123902),
+ ('DeckNum', 0.0033136668919036354),
+ ('Deck_D', 0.0028604568937684927),
+ ('Parch', 0.0025190299186638766),
+ ('Deck_U', 0.002444551103227824),
+ ('Embarked_Q', 0.0022301353748477594),
+ ('AgeMissing', 0.002135871840070165),
+ ('FareMissing', 0.0018316174903305546),
+ ('Deck_C', 0.0015485043212398186),
+ ('Deck_E', 0.0014415109092233275),
+ ('CabinKnown', 0.00054925899698078868),
+ ('Deck_A', 0.00048507770766712172),
+ ('Deck_B', 0.00022540211393827823),
+ ('Deck_G', 0.00017833852193634194),
+ ('Deck_F', 0.0),
+ ('Deck_T', 0.0)]
+ 
+Trying again without DeckNum
+----------------------------
+I want to do this so I can better see the importance of individual decks.
+
+Validation score 0.836, Hyperparams {'max_features': 27, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Validation score 0.836, Hyperparams {'max_features': 27, 'min_samples_split': 30, 'min_samples_leaf': 2}
+
+[('TitleNum', 0.32177931289593886),
+ ('SexNum', 0.16089143603894399),
+ ('Pclass', 0.096275238582898409),
+ ('AgeFill', 0.096269259356081244),
+ ('FarePerPersonFill', 0.087917490867944106),
+ ('FareFill', 0.083247397016026861),
+ ('CabinNum', 0.026019270243005762),
+ ('SibSp', 0.024222985528401443),
+ ('NamesNum', 0.023463461766993151),
+ ('FarePerPersonFill_bin', 0.015849071812469629),
+ ('AgeFill_bin', 0.014855945005216378),
+ ('Embarked_S', 0.0099190329769055612),
+ ('Embarked_C', 0.0052526097455421264),
+ ('ShipSide', 0.0045194945309711201),
+ ('Deck_D', 0.0044791874809121781),
+ ('FareFill_bin', 0.0040302803876842439),
+ ('Deck_E', 0.0033832932491146672),
+ ('Embarked_Q', 0.0031533989461049578),
+ ('Parch', 0.00298673344879344),
+ ('FareMissing', 0.002983772932617001),
+ ('AgeMissing', 0.0023967962533390278),
+ ('Deck_C', 0.0021030161898082066),
+ ('Deck_U', 0.0018619656985326006),
+ ('Deck_B', 0.00074418933615437053),
+ ('Deck_G', 0.00048969928767380623),
+ ('Deck_A', 0.00044447420534475009),
+ ('Deck_F', 0.00027626240226402015),
+ ('CabinKnown', 0.00018492381431812045),
+ ('Deck_T', 0.0)]
+Training accuracy: 0.901
+
+It's interesting that decks D and E were so much more useful than the others. Also,
+the training accuracy shows that it's fitting the training data better although the
+cross-validation accuracy is showing that it's not having much effect.

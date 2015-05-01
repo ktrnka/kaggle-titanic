@@ -1,6 +1,7 @@
 import io
 import csv
 from operator import itemgetter
+import pprint
 import sys
 
 import pandas
@@ -29,6 +30,7 @@ TITLE_REMAP = {
     "Major": "Military",
     "Col": "Military"
 }
+DEFAULT_DECK = "U"
 
 
 def extract_title(name):
@@ -38,6 +40,7 @@ def extract_title(name):
         return TITLE_REMAP.get(title, title)
     return None
 
+
 def extract_deck(cabin):
     if not cabin:
         return None
@@ -46,6 +49,7 @@ def extract_deck(cabin):
         return match.group(1)
     print "Failed to match ", cabin
     return None
+
 
 def extract_cabin_number(cabin):
     if not cabin:
@@ -59,7 +63,9 @@ def extract_cabin_number(cabin):
 def transform_features(data):
     data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "PassengerId", "FamilySize"], axis=1)
     data.info()
-    return data.drop("Survived", axis=1).values, data.Survived.values
+    print "Data columns: {}".format(", ".join(sorted(data.columns)))
+    X = data.drop("Survived", axis=1)
+    return X.values, data.Survived.values, X.columns
 
 
 def print_tuning_scores(tuned_estimator, reverse=True):
@@ -68,8 +74,10 @@ def print_tuning_scores(tuned_estimator, reverse=True):
 
 
 def fill_age(data, evaluate=True):
-    age_data = data[["Age", "Embarked_C", "Embarked_S", "Embarked_Q", "TitleNum", "DeckNum", "CabinNum", "SexNum", "NamesNum", "SibSp", "Parch", "Pclass"]]
-    # age_data = data[["Age", "TitleNum", "Pclass"]]
+    # age and the features used to predict it
+    age_data = data[
+        ["Age", "Embarked_C", "Embarked_S", "Embarked_Q", "TitleNum", "DeckNum", "CabinNum", "SexNum", "NamesNum",
+         "SibSp", "Parch", "Pclass"]]
 
     age_known = age_data[age_data.Age.notnull()]
     age_unknown = age_data[age_data.Age.isnull()]
@@ -90,7 +98,8 @@ def fill_age(data, evaluate=True):
         "min_samples_split": [10, 20, 30, 40]
     }
 
-    regressor_tuning = sklearn.grid_search.GridSearchCV(regressor, hyperparams, n_jobs=-1, cv=split_iterator, refit=True)
+    regressor_tuning = sklearn.grid_search.GridSearchCV(regressor, hyperparams, n_jobs=-1, cv=split_iterator,
+                                                        refit=True)
     regressor_tuning.fit(X, y)
 
     if evaluate:
@@ -100,7 +109,7 @@ def fill_age(data, evaluate=True):
     predicted = regressor_tuning.predict(age_unknown.drop("Age", axis=1).values)
     data["AgeFill"] = data.Age
     data.loc[data.AgeFill.isnull(), "AgeFill"] = predicted
-    sys.exit(0)
+
 
 def clean_data(data):
     data.Embarked = data.Embarked.fillna(data.Embarked.value_counts().idxmax())
@@ -121,6 +130,7 @@ def clean_data(data):
     fare_by_class_embarked = data.pivot_table(index=["Pclass", "Embarked"], values=["FarePerPerson"], aggfunc=numpy.median)
     data["FarePerPersonFill"] = data.FarePerPerson
     data.loc[data.FarePerPersonFill == 0, "FarePerPersonFill"] = None
+    data["FareMissing"] = data.FarePerPersonFill.isnull().astype(int)
     for pclass in data.Pclass.unique():
         for embarkation_point in data.Embarked.unique():
             mask = (data.FarePerPersonFill.isnull()) & (data.Pclass == pclass) & (data.Embarked == embarkation_point)
@@ -132,59 +142,74 @@ def clean_data(data):
     data.drop("Title", axis=1, inplace=True)
 
     # deck
-    data.loc[data.Cabin.isnull(), "Cabin"] = "U0"
+    data["CabinKnown"] = data.Cabin.notnull().astype(int)
+    data.loc[data.Cabin.isnull(), "Cabin"] = DEFAULT_DECK + "0"
     data["Deck"] = data.Cabin.map(extract_deck)
+    deck_dummies = pandas.get_dummies(data.Deck, "Deck")
+    for col in deck_dummies.columns:
+        data[col] = deck_dummies[col]
+
     data["DeckNum"] = pandas.factorize(data.Deck)[0]
     data.drop(["Deck"], axis=1, inplace=True)
 
     # front/back of boat
     data["CabinNum"] = data.Cabin.map(extract_cabin_number)
+    data["ShipSide"] = numpy.round(data.CabinNum) % 2
+    data.loc[data.CabinNum == 0, "ShipSide"] = -1
 
     # clean up the Age column
+    data["AgeMissing"] = data.Age.isnull().astype(int)
     fill_age(data)
     data.drop("Age", axis=1, inplace=True)
 
+    data.drop(["DeckNum"], axis=1, inplace=True)
+
+    # create some binned indexed versions
+    for col, bins in [("FarePerPersonFill", 5), ("FareFill", 5), ("AgeFill", 10)]:
+        binned_data = pandas.qcut(data[col], bins)
+        data[col + "_bin"] = pandas.factorize(binned_data, sort=True)[0]
+
 
 def main():
-    global training_data, test_data, all_data, training_x, training_y, classifier, split_iterator, cv_scores, base_classifier, random_params, tuned_classifier, test, training_predictions, diffs, ids, test_x, _, test_predictions, csv_out, csv_writer
     training_data = pandas.read_csv("../data/train.csv", header=0)
     test_data = pandas.read_csv("../data/test.csv", header=0)
     all_data = pandas.concat([training_data, test_data])
+
     clean_data(all_data)
+
     training_data = all_data[all_data.Survived.notnull()]
     test_data = all_data[all_data.Survived.isnull()]
-    training_data.info()
-    training_x, training_y = transform_features(training_data)
-    print "Classifier with fixed hyperparameters"
-    classifier = sklearn.ensemble.RandomForestClassifier(100, max_features=None, min_samples_split=20, random_state=13,
-                                                         oob_score=True)
+
+    training_x, training_y, columns = transform_features(training_data)
+
     # cross-validate the classifier
     split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, n_iter=10, random_state=4)
-    cv_scores = sklearn.cross_validation.cross_val_score(classifier, training_x, training_y, cv=split_iterator)
-    print "Cross-validation min {:.3f}".format(cv_scores.min())
-    print "Cross-validation accuracy {:.3f} +/- {:.3f}".format(cv_scores.mean(), cv_scores.std() * 2)
-    # print cv_scores
+
     print "Hyperparameter tuning"
     base_classifier = sklearn.ensemble.RandomForestClassifier(100, oob_score=True, random_state=13)
-    random_params = {
+    parameter_space = {
         "max_features": [None, "sqrt", 0.5, training_x.shape[1] - 1, training_x.shape[1] - 2, training_x.shape[1] - 3,
                          training_x.shape[1] - 4],
         "min_samples_split": [20, 30, 40, 50, 60, 70, 80],
         "min_samples_leaf": [1, 2]
     }
-    tuned_classifier = sklearn.grid_search.GridSearchCV(base_classifier, random_params, n_jobs=-1, cv=split_iterator,
+    tuned_classifier = sklearn.grid_search.GridSearchCV(base_classifier, parameter_space, n_jobs=-1, cv=split_iterator,
                                                         refit=True)
     tuned_classifier.fit(training_x, training_y)
     print_tuning_scores(tuned_classifier)
 
-    # train the classifier
-    # tuned_classifier.fit(training_x, training_y)
+    paired_features = zip(columns, tuned_classifier.best_estimator_.feature_importances_)
+    pprint.pprint(sorted(paired_features, key=itemgetter(1), reverse=True))
+
+
     training_predictions = tuned_classifier.predict(training_x)
     diffs = training_predictions - training_y
     print "Training accuracy: {:.3f}".format(1. - numpy.abs(diffs).mean())
+
     ids = test_data.PassengerId.values
-    test_x, _ = transform_features(test_data)
+    test_x, _, _ = transform_features(test_data)
     test_predictions = tuned_classifier.predict(test_x)
+
     with io.open("../data/forest_current.csv", "wb") as csv_out:
         csv_writer = csv.writer(csv_out)
         csv_writer.writerow(["PassengerId", "Survived"])
