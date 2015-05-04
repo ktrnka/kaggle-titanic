@@ -1319,3 +1319,260 @@ Feature importances
 	Title_Rev           : 1.14269939885e-05
 Validation score 0.569 +/- 0.182, Hyperparams {'max_features': 0.5, 'min_samples_split': 10, 'min_samples_leaf': 2}
 
+Fixing CabinNum
+===============
+The code took the average of cabin numbers when multiple were listed. This
+could lead to setting the side of the ship incorrectly because the average of 10 and 12 is 11.
+So now I take the median without averaging for even arrays.
+
+This improves fare prediction slightly:
+Feature importances
+    Pclass              : 0.314551785943
+    CabinNum            : 0.255943410809
+    Title_Miss          : 0.104307257371
+    TicketAlphaPart     : 0.10288695025
+    DeckNum             : 0.0906550842839
+    Parch               : 0.0320772931554
+    SibSp               : 0.0276003906018
+    Embarked_C          : 0.0244670207273
+    SexNum              : 0.0180771169647
+    Title_Mrs           : 0.00933224839913
+    Embarked_S          : 0.00923415337775
+    Title_Mr            : 0.00657203890719
+    Title_Lady          : 0.00167906738524
+    Title_Military      : 0.00142713741205
+    Embarked_Q          : 0.000477293097015
+    Title_Sir           : 0.000286932320547
+    Title_Master        : 0.000221291278761
+    Title_Dr            : 0.000183180696119
+    Title_Rev           : 2.03470187335e-05
+Validation score 0.570 +/- 0.181, Hyperparams {'max_features': 0.5, 'min_samples_split': 10, 'min_samples_leaf': 1}
+
+The overall score is degraded slightly:
+Validation score 0.846 +/- 0.040, Hyperparams {'max_features': 21, 'min_samples_split': 20, 'min_samples_leaf': 3}
+Feature importances
+	Title_Mr            : 0.290910389366
+	SexNum              : 0.175597887013
+	Pclass              : 0.0866548453727
+	FarePerPersonFill   : 0.08619839242
+	TicketNumPart       : 0.0856178581148
+	AgeFill             : 0.0772175299592
+	FareFill            : 0.0743992115092
+	CabinNum            : 0.0226584688498
+	SibSp               : 0.0223045867299
+	NamesNum            : 0.0144738726636
+	Title_Rev           : 0.0108013782504
+	TicketAlphaPart     : 0.00987318928824
+	Embarked_S          : 0.00960854584672
+	DeckNum             : 0.00765880937505
+	Title_Master        : 0.00518978466608
+	ShipSide            : 0.00517922863587
+	Title_Miss          : 0.00296805328117
+	Embarked_C          : 0.00279450394293
+	Embarked_Q          : 0.00274320043861
+	Parch               : 0.00268191756272
+	Title_Dr            : 0.00249530660084
+	Title_Military      : 0.00110045250253
+	Title_Sir           : 0.000595931903608
+	Title_Mrs           : 0.000276655706581
+	Title_Lady          : 0.0
+Training accuracy: 0.895
+
+It does result in a higher weight on the ship side.
+
+Test acc 0.78469 (no change)
+
+Experiments with fixing the overfitting
+=======================================
+
+Test 1: Retain only the original 3 features
+-------------------------------------------
+Reproducing the Random Forest with SexNum, Pclass, and FareFillBin.
+
+This isn't entirely the same as the original because FareFill has a lot of work going into it.
+The baseline graph is horribly overfit to training data and test acc goes to about 0.825.
+
+The graph with just 3 features is interesting. The training and CV error are very close.
+The training stddev is very low and the testing stddev is quite high.
+
+Validation score 0.796 +/- 0.040, Hyperparams {'max_features': None, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Feature importances
+	SexNum              : 0.694052351179
+	Pclass              : 0.226150542923
+	FareFillBin         : 0.079797105898
+
+Test acc 0.77990
+
+Test 1.1: Without complex FareFill logic
+----------------------------------------
+Computing directly from Fare.
+
+Validation score 0.796 +/- 0.040, Hyperparams {'max_features': None, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Feature importances
+	SexNum              : 0.687217435508
+	Pclass              : 0.220504198241
+	FareFillBin         : 0.0922783662512
+
+Basically no difference.
+
+Test acc 0.77990
+
+Test 1.2: 2 MSS
+---------------
+Added MSS 2, 5 and MSS 2 was picked though with the same scores:
+Validation score 0.796 +/- 0.040, Hyperparams {'max_features': None, 'min_samples_split': 2, 'min_samples_leaf': 1}
+Feature importances
+	SexNum              : 0.687043318632
+	Pclass              : 0.220482908241
+	FareFillBin         : 0.0924737731275
+
+Test acc 0.77990
+
+Somehow or other the original outperforms...
+
+Test 2: Adding AgeFill
+----------------------
+Simply adding age adds a TON of variance to the data and it's easy to see in the graph.
+
+Validation score 0.828 +/- 0.030, Hyperparams {'max_features': None, 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.403798111361
+	AgeFill             : 0.352665354345
+	Pclass              : 0.157650248163
+	FareFillBin         : 0.0858862861305
+
+But note that the validation score stddev goes down.
+
+Test acc 0.72727 (!)
+
+Test 2.1: AgeFillBin
+--------------------
+Grouping Age in 5-year bins to reduce variance.
+
+With max 12 bins
+Validation score 0.824 +/- 0.031, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 2, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.465432373931
+	AgeFillBin          : 0.230180773815
+	Pclass              : 0.182419040448
+	FareFillBin         : 0.121967811805
+Training accuracy: 0.855
+
+With max 10 bins
+Validation score 0.829 +/- 0.027, Hyperparams {'max_features': 1, 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.476482639271
+	AgeFillBin          : 0.208939002292
+	Pclass              : 0.180816195067
+	FareFillBin         : 0.133762163369
+Training accuracy: 0.855
+
+With max 8 bins
+The graph looks quite a bit better but what about validation scores?
+Validation score 0.824 +/- 0.032, Hyperparams {'max_features': None, 'min_samples_split': 2, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.521934800876
+	Pclass              : 0.209286875416
+	AgeFillBin          : 0.163192700171
+	FareFillBin         : 0.105585623536
+
+It's getting worse but in some sense it's just because it's depending less on AgeFillBin.
+
+Test acc: 0.77512 (still worse than excluding age entirely)
+
+Test 3: Common title indicators
+-------------------------------
+Dropping age out entirely what about just title indicators? I dropped the Dr/Lady/Military/Rev/Sir ones cause they're sparse.
+
+Validation score 0.821 +/- 0.043, Hyperparams {'max_features': 6, 'min_samples_split': 40, 'min_samples_leaf': 1}
+
+Feature importances
+	Title_Mr            : 0.385500747826
+	SexNum              : 0.303190572145
+	Pclass              : 0.203785047022
+	FareFillBin         : 0.0832838815614
+	Title_Master        : 0.0206520102334
+	Title_Miss          : 0.00189242127227
+	Title_Mrs           : 0.00169531993944
+
+The validation curve looks excellent for this one.
+
+Test acc: 0.78947 (pretty huge improvement)
+
+Test 4: Ship side (very sparse)
+-------------------------------
+The side of the ship is quite sparse but may be enough to help when available.
+
+Validation score 0.820 +/- 0.041, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 20, 'min_samples_leaf': 3}
+Feature importances
+	Title_Mr            : 0.316336458337
+	SexNum              : 0.205367111242
+	Pclass              : 0.157266538369
+	FareFillBin         : 0.0885640919222
+	ShipSide            : 0.0812499156447
+	Title_Miss          : 0.0767618925466
+	Title_Mrs           : 0.0556583049664
+	Title_Master        : 0.0187956869722
+
+This isn't helping at all.
+
+Test 5: Ticket alpha
+--------------------
+Validation score 0.826 +/- 0.032, Hyperparams {'max_features': 5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Feature importances
+	Title_Mr            : 0.354884009718
+	SexNum              : 0.23474764839
+	Pclass              : 0.187694870558
+	FareFillBin         : 0.0894849178436
+	TicketAlphaPart     : 0.0607229139361
+	Title_Master        : 0.0309170293874
+	Title_Miss          : 0.0228660116143
+	Title_Mrs           : 0.0186825985526
+
+Learning curve shows the ticket alpha part overfitting a ton but maybe with the added regularization it'll
+bump up the testing acc.
+
+Test acc: 0.79426 (best RF one yet)
+
+Test 6: Age again
+-----------------
+I'm going to try AgeFillBin using qcut this time but in fewer categories, only 5.
+
+Validation score 0.831 +/- 0.027, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 20, 'min_samples_leaf': 1}
+Feature importances
+	Title_Mr            : 0.247315418224
+	SexNum              : 0.237781647949
+	Pclass              : 0.159503806349
+	FareFillBin         : 0.101594567554
+	AgeFillBin          : 0.0700875832397
+	TicketAlphaPart     : 0.0621416535338
+	Title_Mrs           : 0.0555418686883
+	Title_Miss          : 0.0470671544816
+	Title_Master        : 0.0189662999801
+(Graph is overfitting more but regularization maaaybe will solve it)
+
+Test acc: 0.77990 (drat)
+
+Age in 5 bins as indicator variables
+------------------------------------
+There's a small chance that converting age to indicator variables will reduce overfitting.
+
+Validation score 0.830 +/- 0.023, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Feature importances
+	Title_Mr            : 0.29922874867
+	SexNum              : 0.233257421615
+	Pclass              : 0.168463912585
+	FareFillBin         : 0.0911970617017
+	TicketAlphaPart     : 0.0563236567776
+	AgeFillBin          : 0.0294281162379
+	Title_Mrs           : 0.0273693625674
+	Title_Miss          : 0.0239932312363
+	Title_Master        : 0.0200261005118
+	AgeFillBin_3        : 0.012748429256
+	AgeFillBin_1        : 0.0119954401295
+	AgeFillBin_4        : 0.0111022245335
+	AgeFillBin_0        : 0.00849118380908
+	AgeFillBin_2        : 0.00637511036971
+
+Eh doesn't look like it's doing much to be honest except overfitting when I look at the graph.
+

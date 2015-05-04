@@ -34,8 +34,13 @@ TITLE_REMAP = {
 }
 DEFAULT_DECK = "U"
 
+def median_no_avg(numbers):
+    """Median without averaging for even number of elements"""
+    numbers = sorted(numbers)
+    return numbers[len(numbers)/2]
 
 def extract_title(name):
+    """Extract Mr/Mrs from the name field"""
     match = TITLE_PATTERN.search(name)
     if match:
         title = match.group(1)
@@ -44,6 +49,7 @@ def extract_title(name):
 
 
 def extract_deck(cabin):
+    """Extract the first deck listed in the cabin field"""
     if not cabin:
         return None
     match = DECK_PATTERN.search(cabin)
@@ -54,11 +60,13 @@ def extract_deck(cabin):
 
 
 def extract_cabin_number(cabin):
+    """Extract the cabin number from the cabin field or median if multiple"""
     if not cabin:
         return None
     numbers = CABIN_NUMBER_PATTERN.findall(cabin)
     if numbers:
-        return sum(int(n) for n in numbers) / float(len(numbers))
+        numbers = [int(x) for x in numbers]
+        return median_no_avg(numbers)
     return 0
 
 
@@ -88,6 +96,7 @@ def extract_ticket_alpha_part(ticket):
 
 
 def transform_features(data):
+    data = data.drop("AgeFill, CabinNum, DeckNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, FarePerPersonFill, NamesNum, Parch, ShipSide, SibSp, TicketNumPart, Title_Dr, Title_Lady, Title_Military, Title_Rev, Title_Sir".split(", "), axis=1)
     data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "PassengerId", "FamilySize"], axis=1)
     data.info()
     print "Data columns: {}".format(", ".join(sorted(data.columns)))
@@ -99,12 +108,14 @@ def print_tuning_scores(tuned_estimator, reverse=True):
     for test in sorted(tuned_estimator.grid_scores_, key=itemgetter(1), reverse=reverse):
         print "Validation score {:.3f} +/- {:.3f}, Hyperparams {}".format(test.mean_validation_score, test.cv_validation_scores.std(), test.parameters)
 
+def bin_fare(fare, bin_size=10, max_bins=4):
+    """Group the fare into bins just like the genderclass experiment"""
+    return min(int(fare / float(bin_size)), max_bins - 1)
+
 
 def fill_age(data, evaluate=True):
     # age and the features used to predict it
-    age_data = data[
-        ["Age", "Embarked_C", "Embarked_S", "Embarked_Q", "TitleNum", "DeckNum", "CabinNum", "SexNum", "NamesNum",
-         "SibSp", "Parch", "Pclass"]]
+    age_data = data[["Age", "Embarked_C", "Embarked_S", "Embarked_Q", "TitleNum", "DeckNum", "CabinNum", "SexNum", "NamesNum", "SibSp", "Parch", "Pclass"]]
 
     age_known = age_data[age_data.Age.notnull()]
     age_unknown = age_data[age_data.Age.isnull()]
@@ -177,12 +188,15 @@ def fill_fare_per_person(data, evaluate=True):
     data["FarePerPersonFill"] = data.FarePerPerson
     data.loc[data.FarePerPersonFill.isnull(), "FarePerPersonFill"] = predicted
 
+def convert_to_indicators(data, column):
+    dummies = pandas.get_dummies(data[column], column)
+    for col in dummies.columns:
+        data[col] = dummies[col]
+
 
 def clean_data(data):
     data.Embarked = data.Embarked.fillna(data.Embarked.value_counts().idxmax())
-    embarked_dummies = pandas.get_dummies(data.Embarked, "Embarked")
-    for col in embarked_dummies.columns:
-        data[col] = embarked_dummies[col]
+    convert_to_indicators(data, "Embarked")
 
     data["Title"] = data.Name.map(extract_title)
     data["NamesNum"] = data.Name.map(lambda n: len(n.split()))
@@ -201,9 +215,6 @@ def clean_data(data):
     # deck
     data.loc[data.Cabin.isnull(), "Cabin"] = DEFAULT_DECK + "0"
     data["Deck"] = data.Cabin.map(extract_deck)
-    # deck_dummies = pandas.get_dummies(data.Deck, "Deck")
-    # for col in deck_dummies.columns:
-    #     data[col] = deck_dummies[col]
 
     # deck number
     data["DeckNum"] = pandas.factorize(data.Deck)[0]
@@ -227,9 +238,12 @@ def clean_data(data):
     data.loc[data.FarePerPerson == 0, "FarePerPerson"] = None
     fill_fare_per_person(data)
     data["FareFill"] = data.FarePerPersonFill * data.FamilySize
+    data["FareFillBin"] = data.Fare.fillna(data.Fare.median()).map(bin_fare)
 
     # clean up the Age column
     fill_age(data)
+    # data["AgeFillBin"] = pandas.qcut(data.AgeFill, 5, labels=False)
+    # convert_to_indicators(data, "AgeFillBin")
 
     # drop temp vars
     data.drop(["TitleNum", "Age", "Fare", "FarePerPerson"], axis=1, inplace=True)
@@ -237,7 +251,7 @@ def clean_data(data):
 
 def learning_curve(training_x, training_y, filename):
     split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, n_iter=10, random_state=4)
-    base_classifier = sklearn.ensemble.RandomForestClassifier(100, min_samples_split=8, min_samples_leaf=2, random_state=13)
+    base_classifier = sklearn.ensemble.RandomForestClassifier(100, random_state=13)
     train_sizes, train_scores, test_scores = sklearn.learning_curve.learning_curve(base_classifier, training_x,
                                                                                    training_y, cv=split_iterator,
                                                                                    train_sizes=numpy.linspace(.1, 1., 10),
@@ -275,8 +289,8 @@ def print_feature_importances(columns, tuned_classifier):
 
 
 def main():
-    training_data = pandas.read_csv("../data/train.csv", header=0)
-    test_data = pandas.read_csv("../data/test.csv", header=0)
+    training_data = pandas.read_csv("data/train.csv", header=0)
+    test_data = pandas.read_csv("data/test.csv", header=0)
     all_data = pandas.concat([training_data, test_data])
 
     clean_data(all_data)
@@ -297,9 +311,10 @@ def main():
     parameter_space = {
         "max_features": [None, "sqrt", 0.5, training_x.shape[1] - 1, training_x.shape[1] - 2, training_x.shape[1] - 3,
                          training_x.shape[1] - 4, training_x.shape[1] - 5],
-        "min_samples_split": [20, 30, 40],
+        "min_samples_split": [2, 5, 20, 30, 40],
         "min_samples_leaf": [1, 2, 3]
     }
+    parameter_space["max_features"] = [n for n in parameter_space["max_features"] if n is None or n > 0]
     tuned_classifier = sklearn.grid_search.GridSearchCV(base_classifier, parameter_space, n_jobs=-1, cv=split_iterator, refit=True)
     tuned_classifier.fit(training_x, training_y)
     print_tuning_scores(tuned_classifier)
@@ -314,7 +329,7 @@ def main():
     test_x, _, _ = transform_features(test_data)
     test_predictions = tuned_classifier.predict(test_x)
 
-    with io.open("../data/forest_current.csv", "wb") as csv_out:
+    with io.open("data/forest_current.csv", "wb") as csv_out:
         csv_writer = csv.writer(csv_out)
         csv_writer.writerow(["PassengerId", "Survived"])
         csv_writer.writerows(zip(ids, test_predictions.astype(int)))
