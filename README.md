@@ -1211,3 +1211,111 @@ This performs worse!
 
 I kind of prefer this though because the trees can ignore Sir and Lady.
 
+Retuning to FarePerPersonFill
+-----------------------------
+- Switching from factorized Title to indicator Title, helps only a tiny bit but requires min_samples_leaf tuning.
+- Adding TicketAlphaPart helpful 0.549 -> 0.569
+- Don't really want to add TicketNumPart
+
+Validation score 0.848, Hyperparams {'max_features': 21, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Validation score 0.844, Hyperparams {'max_features': 21, 'min_samples_split': 20, 'min_samples_leaf': 3}
+Validation score 0.843, Hyperparams {'max_features': 21, 'min_samples_split': 20, 'min_samples_leaf': 4}
+
+    [('Title_Mr', 0.28539688309792838),
+     ('SexNum', 0.17132954236406078),
+     ('FarePerPersonFill', 0.089302314887669793),
+     ('TicketNumPart', 0.08729091763939141),
+     ('Pclass', 0.085949277291770154),
+     ('AgeFill', 0.079187293211847309),
+     ('FareFill', 0.072143352664065533),
+     ('CabinNum', 0.023253985102203726),
+     ('SibSp', 0.022705671983139636),
+     ('NamesNum', 0.016062294829703443),
+     ('TicketAlphaPart', 0.0128317649987248),
+     ('Title_Rev', 0.01101211614230586),
+     ('Embarked_S', 0.0094532223635907988),
+     ('DeckNum', 0.0076336756373551898),
+     ('Title_Master', 0.004842667080675437),
+     ('ShipSide', 0.0044292151265404971),
+     ('Embarked_C', 0.0036173289113890809),
+     ('Title_Dr', 0.003237039668546703),
+     ('Title_Miss', 0.0027770685957148439),
+     ('Parch', 0.002480260040300677),
+     ('Embarked_Q', 0.0021671179510456173),
+     ('Title_Military', 0.0014948636497379075),
+     ('Title_Sir', 0.0011544576098024477),
+     ('Title_Mrs', 0.00024766915248994754),
+     ('Title_Lady', 0.0)]
+
+Looks like a slight improvement though usually FarePPF and FareF are more closely used. Actually not in the last test.
+
+Note
+----
+Figured out that you can get std dev of cross validation scores so now I'm showing those.
+That could help a bit in model selection.
+
+Submitting
+----------
+The main changes since last time is a slight improvement on FarePPF and additional tuning on AgeF.
+
+Validation score 0.848 +/- 0.036, Hyperparams {'max_features': 21, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Data columns: AgeFill, CabinNum, DeckNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, FarePerPersonFill, NamesNum, Parch, Pclass, SexNum, ShipSide, SibSp, Survived, TicketAlphaPart, TicketNumPart, Title_Dr, Title_Lady, Title_Master, Title_Military, Title_Miss, Title_Mr, Title_Mrs, Title_Rev, Title_Sir
+Training accuracy: 0.901
+
+Test acc: 0.78469
+
+Fixing CabinNumber when there are multiple cabin numbers
+========================================================
+
+Validation score 0.848 +/- 0.036, Hyperparams {'max_features': 21, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Feature importances
+	Title_Mr            : 0.285396883098
+	SexNum              : 0.171329542364
+	FarePerPersonFill   : 0.0893023148877
+	TicketNumPart       : 0.0872909176394
+	Pclass              : 0.0859492772918
+	AgeFill             : 0.0791872932118
+	FareFill            : 0.0721433526641
+	CabinNum            : 0.0232539851022
+	SibSp               : 0.0227056719831
+	NamesNum            : 0.0160622948297
+	TicketAlphaPart     : 0.0128317649987
+	Title_Rev           : 0.0110121161423
+	Embarked_S          : 0.00945322236359
+	DeckNum             : 0.00763367563736
+	Title_Master        : 0.00484266708068
+	ShipSide            : 0.00442921512654
+	Embarked_C          : 0.00361732891139
+	Title_Dr            : 0.00323703966855
+	Title_Miss          : 0.00277706859571
+	Parch               : 0.0024802600403
+	Embarked_Q          : 0.00216711795105
+	Title_Military      : 0.00149486364974
+	Title_Sir           : 0.0011544576098
+	Title_Mrs           : 0.00024766915249
+	Title_Lady          : 0.0
+Training accuracy: 0.901
+
+Fare prediction uses CabinNum extensively:
+Feature importances
+	Pclass              : 0.321198066893
+	CabinNum            : 0.229890373491
+	Title_Miss          : 0.107535277364
+	TicketAlphaPart     : 0.101437730328
+	DeckNum             : 0.0981445914002
+	SibSp               : 0.0375326034474
+	Parch               : 0.0327145249364
+	Embarked_C          : 0.0276498406751
+	SexNum              : 0.0167701007566
+	Embarked_S          : 0.0109487386891
+	Title_Mr            : 0.00944591237633
+	Title_Mrs           : 0.00576419450351
+	Title_Lady          : 0.000355773173703
+	Embarked_Q          : 0.000256570265146
+	Title_Military      : 0.000120282180539
+	Title_Master        : 0.000111374269969
+	Title_Sir           : 8.84737749018e-05
+	Title_Dr            : 2.4144480537e-05
+	Title_Rev           : 1.14269939885e-05
+Validation score 0.569 +/- 0.182, Hyperparams {'max_features': 0.5, 'min_samples_split': 10, 'min_samples_leaf': 2}
+

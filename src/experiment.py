@@ -61,6 +61,7 @@ def extract_cabin_number(cabin):
         return sum(int(n) for n in numbers) / float(len(numbers))
     return 0
 
+
 def extract_ticket_number_part(ticket):
     if not ticket:
         return -1
@@ -70,8 +71,8 @@ def extract_ticket_number_part(ticket):
     try:
         return int(parts[-1])
     except ValueError:
-        print parts[-1]
         return -1
+
 
 def extract_ticket_alpha_part(ticket):
     if not ticket:
@@ -85,6 +86,7 @@ def extract_ticket_alpha_part(ticket):
     except ValueError:
         return parts[0]
 
+
 def transform_features(data):
     data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "PassengerId", "FamilySize"], axis=1)
     data.info()
@@ -95,7 +97,7 @@ def transform_features(data):
 
 def print_tuning_scores(tuned_estimator, reverse=True):
     for test in sorted(tuned_estimator.grid_scores_, key=itemgetter(1), reverse=reverse):
-        print "Validation score {:.3f}, Hyperparams {}".format(test.mean_validation_score, test.parameters)
+        print "Validation score {:.3f} +/- {:.3f}, Hyperparams {}".format(test.mean_validation_score, test.cv_validation_scores.std(), test.parameters)
 
 
 def fill_age(data, evaluate=True):
@@ -120,7 +122,8 @@ def fill_age(data, evaluate=True):
 
     hyperparams = {
         "max_features": [None, "sqrt", 0.5, 0.8],
-        "min_samples_split": [10, 20, 30, 40]
+        "min_samples_split": [10, 20, 30, 40],
+        "min_samples_leaf": [1, 2, 3]
     }
 
     regressor_tuning = sklearn.grid_search.GridSearchCV(regressor, hyperparams, n_jobs=-1, cv=split_iterator,
@@ -129,18 +132,17 @@ def fill_age(data, evaluate=True):
 
     if evaluate:
         print "Age hyperparameter tuning"
-        paired_features = zip(age_known.drop("Age", axis=1).columns, regressor_tuning.best_estimator_.feature_importances_)
-        pprint.pprint(sorted(paired_features, key=itemgetter(1), reverse=True))
-
+        print_feature_importances(age_known.drop("Age", axis=1).columns, regressor_tuning)
         print_tuning_scores(regressor_tuning)
 
     predicted = regressor_tuning.predict(age_unknown.drop("Age", axis=1).values)
     data["AgeFill"] = data.Age
     data.loc[data.AgeFill.isnull(), "AgeFill"] = predicted
 
+
 def fill_fare_per_person(data, evaluate=True):
     # fare and predictors
-    fare_data = data[["FarePerPerson", "Pclass", "Embarked_Q", "Embarked_S", "Embarked_C", "TitleNum", "SexNum", "DeckNum", "CabinNum", "SibSp", "Parch"]]
+    fare_data = data[["FarePerPerson", "Pclass", "Embarked_Q", "Embarked_S", "Embarked_C", "SexNum", "DeckNum", "CabinNum", "SibSp", "Parch", "Title_Dr", "Title_Lady", "Title_Master", "Title_Military", "Title_Miss", "Title_Mr", "Title_Mrs", "Title_Rev", "Title_Sir", "TicketAlphaPart"]]
 
     fare_known = fare_data[fare_data.FarePerPerson.notnull()]
     fare_unknown = fare_data[fare_data.FarePerPerson.isnull()]
@@ -158,7 +160,8 @@ def fill_fare_per_person(data, evaluate=True):
 
     hyperparams = {
         "max_features": [None, "sqrt", 0.5, 0.8],
-        "min_samples_split": [10, 20]
+        "min_samples_split": [10, 20],
+        "min_samples_leaf": [1, 2, 3]
     }
 
     regressor_tuning = sklearn.grid_search.GridSearchCV(regressor, hyperparams, n_jobs=-1, cv=split_iterator,
@@ -167,15 +170,12 @@ def fill_fare_per_person(data, evaluate=True):
 
     if evaluate:
         print "FarePerPerson hyperparameter tuning"
-        paired_features = zip(fare_known.drop("FarePerPerson", axis=1).columns, regressor_tuning.best_estimator_.feature_importances_)
-        pprint.pprint(sorted(paired_features, key=itemgetter(1), reverse=True))
+        print_feature_importances(fare_known.drop("FarePerPerson", axis=1).columns, regressor_tuning)
         print_tuning_scores(regressor_tuning)
 
     predicted = regressor_tuning.predict(fare_unknown.drop("FarePerPerson", axis=1).values)
     data["FarePerPersonFill"] = data.FarePerPerson
     data.loc[data.FarePerPersonFill.isnull(), "FarePerPersonFill"] = predicted
-
-    # sys.exit(0)
 
 
 def clean_data(data):
@@ -191,18 +191,6 @@ def clean_data(data):
     data.drop("Sex", axis=1, inplace=True)
 
     data["FamilySize"] = data.SibSp + data.Parch + 1
-    data["FarePerPerson"] = data.Fare / data.FamilySize
-
-    # clean up the Fare column
-    fare_by_class_embarked = data.pivot_table(index=["Pclass", "Embarked"], values=["FarePerPerson"], aggfunc=numpy.median)
-    data["FarePerPersonFill"] = data.FarePerPerson
-    data.loc[data.FarePerPersonFill == 0, "FarePerPersonFill"] = None
-    data.loc[data.FarePerPerson == 0, "FarePerPerson"] = None
-    # data["FareMissing"] = data.FarePerPersonFill.isnull().astype(int)
-    for pclass in data.Pclass.unique():
-        for embarkation_point in data.Embarked.unique():
-            mask = (data.FarePerPersonFill.isnull()) & (data.Pclass == pclass) & (data.Embarked == embarkation_point)
-            data.loc[mask, "FarePerPersonFill"] = float(fare_by_class_embarked.ix[pclass, embarkation_point])
 
     data["TitleNum"] = data.Title.factorize()[0]
     title_indicators = pandas.get_dummies(data.Title, "Title")
@@ -211,58 +199,45 @@ def clean_data(data):
     data.drop("Title", axis=1, inplace=True)
 
     # deck
-    # data["CabinKnown"] = data.Cabin.notnull().astype(int)
     data.loc[data.Cabin.isnull(), "Cabin"] = DEFAULT_DECK + "0"
     data["Deck"] = data.Cabin.map(extract_deck)
     # deck_dummies = pandas.get_dummies(data.Deck, "Deck")
     # for col in deck_dummies.columns:
     #     data[col] = deck_dummies[col]
 
+    # deck number
     data["DeckNum"] = pandas.factorize(data.Deck)[0]
     data.drop(["Deck"], axis=1, inplace=True)
 
-    # front/back of boat
+    # cabin number, side of ship
     data["CabinNum"] = data.Cabin.map(extract_cabin_number)
     data["ShipSide"] = numpy.round(data.CabinNum) % 2
     data.loc[data.CabinNum == 0, "ShipSide"] = -1
 
-    # clean up the fare
-    fill_fare_per_person(data)
-    data["FareFill"] = data.FarePerPersonFill * data.FamilySize
-    data.drop(["Fare", "FarePerPerson"], axis=1, inplace=True)
-
-    # clean up the Age column
-    # data["AgeMissing"] = data.Age.isnull().astype(int)
-    fill_age(data)
-    data.drop("Age", axis=1, inplace=True)
-
+    # ticket derived features
     data["TicketAlphaPart"] = pandas.factorize(data.Ticket.map(extract_ticket_alpha_part).str.upper().str.replace(r"\.", ""))[0]
     data["TicketNumPart"] = data.Ticket.map(extract_ticket_number_part)
-    # data["TicketNumPart"] -= data["TicketNumPart"] % 100
 
-    # # ticket feature
-    # data["TicketNum"] = -1
-    # data["GroupSize"] = 1
-    # shared_tickets = dict(data.Ticket.value_counts())
-    # shared_tickets = {ticket: count for ticket, count in shared_tickets.iteritems() if count > 1}
-    # for i, ticket in enumerate(shared_tickets.iterkeys()):
-    #     data.loc[data.Ticket == ticket, "TicketNum"] = i
-    #     data.loc[data.Ticket == ticket, "GroupSize"] = shared_tickets[ticket]
+    # survival of other members
+    # family_survival = data.pivot_table(index=["Ticket"], values=["Survived"], aggfunc=[numpy.sum, len])
+    # data["FamilySurvival"] = family_survival[data.Ticket]
 
-    # data.drop(["DeckNum"], axis=1, inplace=True)
+    # clean up the fare
+    data["FarePerPerson"] = data.Fare / data.FamilySize
+    data.loc[data.FarePerPerson == 0, "FarePerPerson"] = None
+    fill_fare_per_person(data)
+    data["FareFill"] = data.FarePerPersonFill * data.FamilySize
 
-    # create some binned indexed versions
-    # for col, bins in [("FarePerPersonFill", 5), ("FareFill", 5), ("AgeFill", 10)]:
-    #     binned_data = pandas.qcut(data[col], bins)
-    #     data[col + "_bin"] = pandas.factorize(binned_data, sort=True)[0]
+    # clean up the Age column
+    fill_age(data)
 
-    # drop from temp vars
-    data.drop(["TitleNum"], axis=1, inplace=True)
+    # drop temp vars
+    data.drop(["TitleNum", "Age", "Fare", "FarePerPerson"], axis=1, inplace=True)
 
 
 def learning_curve(training_x, training_y, filename):
-    split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, min_samples_split=8, min_samples_leaf=2, n_iter=10, random_state=4)
-    base_classifier = sklearn.ensemble.RandomForestClassifier(100, random_state=13)
+    split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, n_iter=10, random_state=4)
+    base_classifier = sklearn.ensemble.RandomForestClassifier(100, min_samples_split=8, min_samples_leaf=2, random_state=13)
     train_sizes, train_scores, test_scores = sklearn.learning_curve.learning_curve(base_classifier, training_x,
                                                                                    training_y, cv=split_iterator,
                                                                                    train_sizes=numpy.linspace(.1, 1., 10),
@@ -292,6 +267,13 @@ def learning_curve(training_x, training_y, filename):
     plt.close()
 
 
+def print_feature_importances(columns, tuned_classifier):
+    paired_features = zip(columns, tuned_classifier.best_estimator_.feature_importances_)
+    print "Feature importances"
+    for feature_name, importance in sorted(paired_features, key=itemgetter(1), reverse=True):
+        print "\t{:20s}: {}".format(feature_name, importance)
+
+
 def main():
     training_data = pandas.read_csv("../data/train.csv", header=0)
     test_data = pandas.read_csv("../data/test.csv", header=0)
@@ -314,16 +296,15 @@ def main():
     base_classifier = sklearn.ensemble.RandomForestClassifier(100, oob_score=True, random_state=13)
     parameter_space = {
         "max_features": [None, "sqrt", 0.5, training_x.shape[1] - 1, training_x.shape[1] - 2, training_x.shape[1] - 3,
-                         training_x.shape[1] - 4],
+                         training_x.shape[1] - 4, training_x.shape[1] - 5],
         "min_samples_split": [20, 30, 40],
-        "min_samples_leaf": [1, 2, 3, 4]
+        "min_samples_leaf": [1, 2, 3]
     }
     tuned_classifier = sklearn.grid_search.GridSearchCV(base_classifier, parameter_space, n_jobs=-1, cv=split_iterator, refit=True)
     tuned_classifier.fit(training_x, training_y)
     print_tuning_scores(tuned_classifier)
 
-    paired_features = zip(columns, tuned_classifier.best_estimator_.feature_importances_)
-    pprint.pprint(sorted(paired_features, key=itemgetter(1), reverse=True))
+    print_feature_importances(columns, tuned_classifier)
 
     training_predictions = tuned_classifier.predict(training_x)
     diffs = training_predictions - training_y
@@ -341,4 +322,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
