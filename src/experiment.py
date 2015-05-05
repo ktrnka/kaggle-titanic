@@ -194,6 +194,19 @@ def convert_to_indicators(data, column):
         data[col] = dummies[col]
 
 
+def compute_ticket_survival(data):
+    survival_by_ticket = data.pivot_table(index=["Ticket"], values=["Survived"], aggfunc=[sum, len])
+
+    other_ticket_holders = survival_by_ticket.ix[data.Ticket, 1].values - 1
+    other_ticket_holder_survival = survival_by_ticket.ix[data.Ticket, 0].fillna(0).values - data.Survived.fillna(0).values
+
+    ticket_survival = pandas.Series(other_ticket_holder_survival / (other_ticket_holders + 0.01))
+    ticket_survival = (ticket_survival >= 1./1.01).astype(int)
+    # ticket_survival.loc[other_ticket_holders == 0] = -1
+    # ticket_survival.loc[ticket_survival > 0] = 1.
+
+    return ticket_survival
+
 def clean_data(data):
     data.Embarked = data.Embarked.fillna(data.Embarked.value_counts().idxmax())
     convert_to_indicators(data, "Embarked")
@@ -205,6 +218,7 @@ def clean_data(data):
     data.drop("Sex", axis=1, inplace=True)
 
     data["FamilySize"] = data.SibSp + data.Parch + 1
+    data["TicketSurvival"] = compute_ticket_survival(data)
 
     ticket_counts = data.Ticket.value_counts()
     data["TicketSize"] = ticket_counts.ix[data.Ticket].values
@@ -324,7 +338,7 @@ def main():
     parameter_space = {
         "max_features": [None, "sqrt", 0.5, training_x.shape[1] - 1, training_x.shape[1] - 2, training_x.shape[1] - 3,
                          training_x.shape[1] - 4, training_x.shape[1] - 5],
-        "min_samples_split": [2, 5, 20, 30, 40],
+        "min_samples_split": [5, 10, 20, 30],
         "min_samples_leaf": [1, 2, 3]
     }
     parameter_space["max_features"] = [n for n in parameter_space["max_features"] if n is None or n > 0]

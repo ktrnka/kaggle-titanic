@@ -1778,3 +1778,83 @@ Feature importances
 	Deck_F              : 0.00220413624172
 
 Test acc 0.81818 (best yet)
+
+Did other family survive?
+-------------------------
+Validation score 0.842 +/- 0.036, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 2, 'min_samples_leaf': 3}
+
+Feature importances
+	Title_Mr            : 0.216238789727
+	SexNum              : 0.187711482942
+	TicketSurvival      : 0.126819658322
+	Pclass              : 0.107987732469
+	FareFillBin         : 0.078664422234
+	Title_Miss          : 0.0658289817401
+	Title_Mrs           : 0.0598042679416
+	Deck_U              : 0.0522717704367
+	TicketAlphaPart     : 0.0485635535582
+	Title_Master        : 0.0187261079847
+	Deck_E              : 0.0113140403409
+	Deck_B              : 0.00811622255083
+	Deck_C              : 0.00811172501428
+	Deck_D              : 0.00666427513528
+	Deck_A              : 0.00170904603652
+	Deck_F              : 0.00146792356691
+
+Test acc 0.81340 (very close!)
+
+Did other family survive part 2
+-------------------------------
+I did a 3-way split but that might lead to overfitting.
+
+Validation score 0.842 +/- 0.036, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 2, 'min_samples_leaf': 3}
+Feature importances
+	Title_Mr            : 0.211492462202
+	SexNum              : 0.193574550502
+	TicketSurvival      : 0.11049664737
+	Pclass              : 0.109540796418
+	FareFillBin         : 0.0826913118836
+	Title_Mrs           : 0.0649365751623
+	Title_Miss          : 0.0621038224369
+	Deck_U              : 0.0551250518778
+	TicketAlphaPart     : 0.0518475244596
+	Title_Master        : 0.0209686993047
+	Deck_E              : 0.0110297227903
+	Deck_B              : 0.00890461524291
+	Deck_D              : 0.00732139904263
+	Deck_C              : 0.00665692629099
+	Deck_A              : 0.00190917023693
+	Deck_F              : 0.00140072477996
+
+It's slightly more robust I think, submitting again.
+
+Test acc 0.80383 (even worse!)
+
+Did other family survive part 3
+-------------------------------
+Instead of checking if prob(survival) > 0, check if prob(survival) > 0.5
+
+The learning curve looks slightly better but it's tough to say.
+
+Validation score 0.838 +/- 0.033, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	Title_Mr            : 0.21174789242
+	SexNum              : 0.189878832128
+	Pclass              : 0.120761995964
+	FareFillBin         : 0.117059427245
+	TicketAlphaPart     : 0.0707498273083
+	Title_Miss          : 0.0640248228397
+	Title_Mrs           : 0.0575111406149
+	Deck_U              : 0.0562563606083
+	TicketSurvival      : 0.0419173561421
+	Title_Master        : 0.0260426370823
+	Deck_E              : 0.0141097908541
+	Deck_B              : 0.0104015084829
+	Deck_D              : 0.00751919691168
+	Deck_C              : 0.00718327466433
+	Deck_A              : 0.00250482025922
+	Deck_F              : 0.00233111647604
+
+The feature is used much much less which is what I want.
+
+test acc 0.80383
