@@ -215,18 +215,6 @@ def convert_to_indicators(data, column, drop=True):
         data.drop(column, axis=1, inplace=True)
 
 
-def compute_ticket_survival(data):
-    """Compute the survival percent from everyone else on the ticket and return a new feature"""
-    survival_by_ticket = data.pivot_table(index=["Ticket"], values=["Survived"], aggfunc=[sum, len])
-
-    other_ticket_holders = survival_by_ticket.ix[data.Ticket, 1].values - 1
-    other_ticket_holder_survival = survival_by_ticket.ix[data.Ticket, 0].fillna(0).values - data.Survived.fillna(0).values
-
-    ticket_survival = pandas.Series(other_ticket_holder_survival / (other_ticket_holders + 0.01))
-    ticket_survival = (ticket_survival >= 1. / 1.01).astype(int)
-
-    return ticket_survival
-
 
 def clean_data(data):
     """Transform the unified training and testing data, filling in missing values and adding derived features"""
@@ -240,7 +228,6 @@ def clean_data(data):
     data.drop("Sex", axis=1, inplace=True)
 
     data["FamilySize"] = data.SibSp + data.Parch + 1
-    data["TicketSurvival"] = compute_ticket_survival(data)
 
     ticket_counts = data.Ticket.value_counts()
     data["TicketSize"] = ticket_counts.ix[data.Ticket].values
