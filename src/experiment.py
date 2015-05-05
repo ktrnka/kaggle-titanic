@@ -96,8 +96,8 @@ def extract_ticket_alpha_part(ticket):
 
 
 def transform_features(data):
-    data = data.drop("AgeFill, CabinNum, DeckNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, FarePerPersonFill, NamesNum, Parch, ShipSide, SibSp, TicketNumPart, Title_Dr, Title_Lady, Title_Military, Title_Rev, Title_Sir".split(", "), axis=1)
-    data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "PassengerId", "FamilySize"], axis=1)
+    data = data.drop("CabinNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, NamesNum, Parch, ShipSide, SibSp, TicketNumPart, Title_Dr, Title_Lady, Title_Military, Title_Rev, Title_Sir".split(", "), axis=1)
+    data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "TicketSize", "PassengerId", "FamilySize", "DeckNum"], axis=1)
     data.info()
     print "Data columns: {}".format(", ".join(sorted(data.columns)))
     X = data.drop("Survived", axis=1)
@@ -151,15 +151,15 @@ def fill_age(data, evaluate=True):
     data.loc[data.AgeFill.isnull(), "AgeFill"] = predicted
 
 
-def fill_fare_per_person(data, evaluate=True):
+def fill_fare(data, evaluate=True):
     # fare and predictors
-    fare_data = data[["FarePerPerson", "Pclass", "Embarked_Q", "Embarked_S", "Embarked_C", "SexNum", "DeckNum", "CabinNum", "SibSp", "Parch", "Title_Dr", "Title_Lady", "Title_Master", "Title_Military", "Title_Miss", "Title_Mr", "Title_Mrs", "Title_Rev", "Title_Sir", "TicketAlphaPart"]]
+    fare_data = data[["Fare", "TicketSize", "Pclass", "Embarked_Q", "Embarked_S", "Embarked_C", "SexNum", "DeckNum", "CabinNum", "SibSp", "Parch", "Title_Dr", "Title_Lady", "Title_Master", "Title_Military", "Title_Miss", "Title_Mr", "Title_Mrs", "Title_Rev", "Title_Sir", "TicketAlphaPart"]]
 
-    fare_known = fare_data[fare_data.FarePerPerson.notnull()]
-    fare_unknown = fare_data[fare_data.FarePerPerson.isnull()]
+    fare_known = fare_data[fare_data.Fare.notnull()]
+    fare_unknown = fare_data[fare_data.Fare.isnull()]
 
-    X = fare_known.drop("FarePerPerson", axis=1).values
-    y = fare_known.FarePerPerson.values
+    X = fare_known.drop("Fare", axis=1).values
+    y = fare_known.Fare.values
 
     regressor = sklearn.ensemble.RandomForestRegressor(100, n_jobs=-1, random_state=3, oob_score=True)
 
@@ -167,7 +167,7 @@ def fill_fare_per_person(data, evaluate=True):
 
     if evaluate:
         cv_scores = sklearn.cross_validation.cross_val_score(regressor, X, y, cv=split_iterator)
-        print "[FarePerPerson] Cross-validation accuracy {:.3f} +/- {:.3f}".format(cv_scores.mean(), cv_scores.std() * 2)
+        print "[Fare] Cross-validation accuracy {:.3f} +/- {:.3f}".format(cv_scores.mean(), cv_scores.std() * 2)
 
     hyperparams = {
         "max_features": [None, "sqrt", 0.5, 0.8],
@@ -180,13 +180,13 @@ def fill_fare_per_person(data, evaluate=True):
     regressor_tuning.fit(X, y)
 
     if evaluate:
-        print "FarePerPerson hyperparameter tuning"
-        print_feature_importances(fare_known.drop("FarePerPerson", axis=1).columns, regressor_tuning)
+        print "Fare hyperparameter tuning"
+        print_feature_importances(fare_known.drop("Fare", axis=1).columns, regressor_tuning)
         print_tuning_scores(regressor_tuning)
 
-    predicted = regressor_tuning.predict(fare_unknown.drop("FarePerPerson", axis=1).values)
-    data["FarePerPersonFill"] = data.FarePerPerson
-    data.loc[data.FarePerPersonFill.isnull(), "FarePerPersonFill"] = predicted
+    predicted = regressor_tuning.predict(fare_unknown.drop("Fare", axis=1).values)
+    data["FareFill"] = data.Fare
+    data.loc[data.FareFill.isnull(), "FareFill"] = predicted
 
 def convert_to_indicators(data, column):
     dummies = pandas.get_dummies(data[column], column)
@@ -206,11 +206,16 @@ def clean_data(data):
 
     data["FamilySize"] = data.SibSp + data.Parch + 1
 
+    ticket_counts = data.Ticket.value_counts()
+    data["TicketSize"] = ticket_counts.ix[data.Ticket].values
+
+
     data["TitleNum"] = data.Title.factorize()[0]
     title_indicators = pandas.get_dummies(data.Title, "Title")
     for column in title_indicators.columns:
         data[column] = title_indicators[column]
     data.drop("Title", axis=1, inplace=True)
+
 
     # deck
     data.loc[data.Cabin.isnull(), "Cabin"] = DEFAULT_DECK + "0"
@@ -218,6 +223,9 @@ def clean_data(data):
 
     # deck number
     data["DeckNum"] = pandas.factorize(data.Deck)[0]
+
+    convert_to_indicators(data, "Deck")
+    data.drop(["Deck_T", "Deck_G"], axis=1, inplace=True)
     data.drop(["Deck"], axis=1, inplace=True)
 
     # cabin number, side of ship
@@ -234,19 +242,24 @@ def clean_data(data):
     # data["FamilySurvival"] = family_survival[data.Ticket]
 
     # clean up the fare
-    data["FarePerPerson"] = data.Fare / data.FamilySize
-    data.loc[data.FarePerPerson == 0, "FarePerPerson"] = None
-    fill_fare_per_person(data)
-    data["FareFill"] = data.FarePerPersonFill * data.FamilySize
-    data["FareFillBin"] = data.Fare.fillna(data.Fare.median()).map(bin_fare)
+    # data["FarePerPerson"] = data.Fare / data.FamilySize
+    data.loc[data.Fare == 0, "Fare"] = None
+    fill_fare(data)
+    data["FareFillBin"] = pandas.qcut(data.FareFill, 5, labels=False)
+    # convert_to_indicators(data, "FareFillBin")
 
     # clean up the Age column
-    fill_age(data)
+    # fill_age(data)
     # data["AgeFillBin"] = pandas.qcut(data.AgeFill, 5, labels=False)
     # convert_to_indicators(data, "AgeFillBin")
 
+    # data["SibSp > 0"] = (data.SibSp > 0).astype(int)
+    # data["Parch > 0"] = (data.Parch > 0).astype(int)
+
+    # data["FamilySize > 1"] = (data.FamilySize > 1).astype(int)
+
     # drop temp vars
-    data.drop(["TitleNum", "Age", "Fare", "FarePerPerson"], axis=1, inplace=True)
+    data.drop(["TitleNum", "Age", "Fare"], axis=1, inplace=True)
 
 
 def learning_curve(training_x, training_y, filename):

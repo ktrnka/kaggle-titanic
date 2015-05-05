@@ -1576,3 +1576,205 @@ Feature importances
 
 Eh doesn't look like it's doing much to be honest except overfitting when I look at the graph.
 
+FareFill from RF regression
+---------------------------
+FareFill R^2 
+Validation score 0.722 +/- 0.114, Hyperparams {'max_features': 0.8, 'min_samples_split': 10, 'min_samples_leaf': 1}
+
+The R^2 is much higher than trying to fill in fare per person.
+
+The learning curve looks much much smoother than converting backwards from FareFillPerPerson.
+
+Validation score 0.824 +/- 0.034, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Feature importances
+	Title_Mr            : 0.295778859123
+	SexNum              : 0.273728365863
+	Pclass              : 0.185046841138
+	FareFillBin         : 0.0905311560161
+	TicketAlphaPart     : 0.0608526350419
+	Title_Mrs           : 0.0336063587979
+	Title_Miss          : 0.0307904675266
+	Title_Master        : 0.0296653164937
+
+Compared to ticket alpha this looks worse but I have a good feeling about it.
+
+Test acc: 0.79426 (same as before)
+
+Adding TicketSize to FareFill
+-----------------------------
+Fare hyperparameter tuning
+Feature importances
+	TicketSize          : 0.422876820229
+	Pclass              : 0.383775854628
+	CabinNum            : 0.0704656654573
+...
+Validation score 0.885 +/- 0.059, Hyperparams {'max_features': 0.8, 'min_samples_split': 10, 'min_samples_leaf': 1}
+
+Seems like much much better correlation.
+
+Validation score 0.826 +/- 0.034, Hyperparams {'max_features': 0.5, 'min_samples_split': 30, 'min_samples_leaf': 1}
+Feature importances
+	SexNum              : 0.282727497802
+	Title_Mr            : 0.252210374982
+	Pclass              : 0.146390542198
+	TicketSize          : 0.107025189563
+	FareFillBin         : 0.0559073094642
+	Title_Mrs           : 0.0449742275771
+	TicketAlphaPart     : 0.0440310311269
+	Title_Miss          : 0.0406806667787
+	Title_Master        : 0.0260531605083
+Training accuracy: 0.844
+
+It's overfitting more because of the TicketSize variable. (Forgot to remove it)
+
+After removing it, it's still clearly overfitting but looks mostly the same as before.
+Validation score 0.824 +/- 0.034, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+
+FareFill qcut
+-------------
+qcut is generally better than fixed ranges I think.
+
+From testing in ipython notebook it looks like 4 bins gives a good balance for correlation.
+
+Ooops bug
+---------
+I wasn't applying the bin function on FareFill....
+
+Validation score 0.824 +/- 0.032, Hyperparams {'max_features': 5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Feature importances
+	Title_Mr            : 0.358795301262
+	SexNum              : 0.236140406327
+	Pclass              : 0.190683131137
+	FareFillBin         : 0.0837232786509
+	TicketAlphaPart     : 0.0592992115209
+	Title_Master        : 0.0311316932907
+	Title_Miss          : 0.021469017801
+	Title_Mrs           : 0.0187579600098
+
+Doesn't seem to matter
+
+FareFill qcut round 2
+---------------------
+4 bins seens good, it cuts them a little differently than the old ones 0-10, 10-20, 20-30, 30+
+
+Validation score 0.816 +/- 0.035, Hyperparams {'max_features': 3, 'min_samples_split': 40, 'min_samples_leaf': 1}
+
+Feature importances
+	Title_Mr            : 0.311060094155
+	SexNum              : 0.267142605502
+	Pclass              : 0.175766572858
+	FareFillBin         : 0.0748305161699
+	Title_Miss          : 0.0584690635929
+	Title_Mrs           : 0.048223681983
+	TicketAlphaPart     : 0.0434659997668
+	Title_Master        : 0.0210414659721
+
+The learning curve looks weird... held-out error gets worse at the end with more data.
+
+What about 5 bins? The learning curve looks dramatically better!
+Validation score 0.828 +/- 0.036, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 2, 'min_samples_leaf': 3}
+
+Feature importances
+	Title_Mr            : 0.29114519712
+	SexNum              : 0.187122682184
+	Pclass              : 0.169025779537
+	FareFillBin         : 0.135415494165
+	Title_Miss          : 0.0681224528776
+	TicketAlphaPart     : 0.0662293303083
+	Title_Mrs           : 0.0572141367701
+	Title_Master        : 0.0257249270371
+Training accuracy: 0.846
+
+What about 6 bins?
+Looks terrible
+
+FareFill qcut 5 bins
+--------------------
+Copy/pasted from above:
+
+What about 5 bins? The learning curve looks dramatically better!
+Validation score 0.828 +/- 0.036, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 2, 'min_samples_leaf': 3}
+
+Feature importances
+	Title_Mr            : 0.29114519712
+	SexNum              : 0.187122682184
+	Pclass              : 0.169025779537
+	FareFillBin         : 0.135415494165
+	Title_Miss          : 0.0681224528776
+	TicketAlphaPart     : 0.0662293303083
+	Title_Mrs           : 0.0572141367701
+	Title_Master        : 0.0257249270371
+Training accuracy: 0.846
+
+Test acc 0.80383
+
+FareFillBin as indicator features
+---------------------------------
+Validation score 0.828 +/- 0.036, Hyperparams {'max_features': None, 'min_samples_split': 20, 'min_samples_leaf': 2}
+Feature importances
+	Title_Mr            : 0.371277206412
+	SexNum              : 0.240706486682
+	Pclass              : 0.189044631562
+	TicketAlphaPart     : 0.0463387740688
+	FareFillBin_3       : 0.0412332409016
+	Title_Master        : 0.0362336409706
+	FareFillBin_4       : 0.0289650379829
+	FareFillBin_1       : 0.0158231514825
+	FareFillBin_0       : 0.0125241398598
+	FareFillBin_2       : 0.0106743081239
+	Title_Miss          : 0.00389081911385
+	Title_Mrs           : 0.00328856283999
+
+The graph is almost identical!
+
+SibSp > 0
+---------
+It overfits more and validation error increases at the end.
+
+Parch > 0
+---------
+Looks basically the same as trying SibSp.
+
+Validation score 0.827 +/- 0.029, Hyperparams {'max_features': 8, 'min_samples_split': 30, 'min_samples_leaf': 1}
+
+FamilySize > 1
+--------------
+Learning curve is better than with Parch but still doesn't look good.
+
+Validation score 0.824 +/- 0.037, Hyperparams {'max_features': 0.5, 'min_samples_split': 2, 'min_samples_leaf': 3}
+
+DeckNum
+-------
+The deck was important but not present too much. Let's see.
+
+Introducing it overfits a ton more but regularization might bring that back down.
+Validation score 0.823 +/- 0.034, Hyperparams {'max_features': 0.5, 'min_samples_split': 2, 'min_samples_leaf': 3}
+
+Doesn't seem promising but I'll try submitting anyway.
+
+Test acc 0.80861
+
+Deck as indicators
+------------------
+Converting Deck to indicator variables and dropping Deck G and T cause they have too little data.
+
+The graph isn't very stable but looks slightly better than the previous one.
+Validation score 0.828 +/- 0.030, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.206323441762
+	Title_Mr            : 0.197157844396
+	FareFillBin         : 0.126777417397
+	Pclass              : 0.123385060321
+	Title_Mrs           : 0.0737188660979
+	TicketAlphaPart     : 0.0726766253841
+	Title_Miss          : 0.0678493930691
+	Deck_U              : 0.067652612273
+	Title_Master        : 0.0254632187472
+	Deck_E              : 0.0101059992689
+	Deck_D              : 0.00796560662576
+	Deck_B              : 0.00779484718337
+	Deck_C              : 0.00746351536485
+	Deck_A              : 0.00346141586714
+	Deck_F              : 0.00220413624172
+
+Test acc 0.81818 (best yet)
