@@ -1,7 +1,6 @@
 import io
 import csv
 from operator import itemgetter
-import pprint
 import sys
 
 import pandas
@@ -16,6 +15,7 @@ import sklearn.tree
 import sklearn.learning_curve
 import matplotlib.pyplot as plt
 import re
+
 
 TITLE_PATTERN = re.compile(r", +([^.]*)\. ")
 DECK_PATTERN = re.compile(r"\b([A-Z]+)\d*\b")
@@ -71,6 +71,7 @@ def extract_cabin_number(cabin):
 
 
 def extract_ticket_number_part(ticket):
+    """Extract the numeric part of the ticket"""
     if not ticket:
         return -1
 
@@ -83,6 +84,7 @@ def extract_ticket_number_part(ticket):
 
 
 def extract_ticket_alpha_part(ticket):
+    """Extract the alpha/sym part of the ticket"""
     if not ticket:
         return None
 
@@ -96,6 +98,7 @@ def extract_ticket_alpha_part(ticket):
 
 
 def transform_features(data):
+    """Select just the features to use for the main classifier"""
     data = data.drop("CabinNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, NamesNum, Parch, ShipSide, SibSp, TicketNumPart, Title_Dr, Title_Lady, Title_Military, Title_Rev, Title_Sir".split(", "), axis=1)
     data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "TicketSize", "PassengerId", "FamilySize", "DeckNum"], axis=1)
     data.info()
@@ -105,6 +108,7 @@ def transform_features(data):
 
 
 def print_tuning_scores(tuned_estimator, reverse=True):
+    """Show the cross-validation scores and hyperparamters from a grid or random search"""
     for test in sorted(tuned_estimator.grid_scores_, key=itemgetter(1), reverse=reverse):
         print "Validation score {:.3f} +/- {:.3f}, Hyperparams {}".format(test.mean_validation_score, test.cv_validation_scores.std(), test.parameters)
 
@@ -114,6 +118,7 @@ def bin_fare(fare, bin_size=10, max_bins=4):
 
 
 def fill_age(data, evaluate=True):
+    """Create the AgeFill field, which copies Age and fills in missing values"""
     # age and the features used to predict it
     age_data = data[["Age", "Embarked_C", "Embarked_S", "Embarked_Q", "TitleNum", "DeckNum", "CabinNum", "SexNum", "NamesNum", "SibSp", "Parch", "Pclass"]]
 
@@ -152,6 +157,7 @@ def fill_age(data, evaluate=True):
 
 
 def fill_fare(data, evaluate=True):
+    """Create the FareFill field, which fills in missing values from Fare"""
     # fare and predictors
     fare_data = data[["Fare", "TicketSize", "Pclass", "Embarked_Q", "Embarked_S", "Embarked_C", "SexNum", "DeckNum", "CabinNum", "SibSp", "Parch", "Title_Dr", "Title_Lady", "Title_Master", "Title_Military", "Title_Miss", "Title_Mr", "Title_Mrs", "Title_Rev", "Title_Sir", "TicketAlphaPart"]]
 
@@ -189,12 +195,14 @@ def fill_fare(data, evaluate=True):
     data.loc[data.FareFill.isnull(), "FareFill"] = predicted
 
 def convert_to_indicators(data, column):
+    """Create indicator features for a column and add them to the data"""
     dummies = pandas.get_dummies(data[column], column)
     for col in dummies.columns:
         data[col] = dummies[col]
 
 
 def compute_ticket_survival(data):
+    """Compute the survival percent from everyone else on the ticket and return a new feature"""
     survival_by_ticket = data.pivot_table(index=["Ticket"], values=["Survived"], aggfunc=[sum, len])
 
     other_ticket_holders = survival_by_ticket.ix[data.Ticket, 1].values - 1
@@ -208,6 +216,7 @@ def compute_ticket_survival(data):
     return ticket_survival
 
 def clean_data(data):
+    """Transform the unified training and testing data, filling in missing values and adding derived features"""
     data.Embarked = data.Embarked.fillna(data.Embarked.value_counts().idxmax())
     convert_to_indicators(data, "Embarked")
 
@@ -277,6 +286,7 @@ def clean_data(data):
 
 
 def learning_curve(training_x, training_y, filename):
+    """Make a learning graph and save it"""
     split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, n_iter=10, random_state=4)
     base_classifier = sklearn.ensemble.RandomForestClassifier(100, random_state=13)
     train_sizes, train_scores, test_scores = sklearn.learning_curve.learning_curve(base_classifier, training_x,
