@@ -1,3 +1,4 @@
+import argparse
 import io
 import csv
 from operator import itemgetter
@@ -317,8 +318,15 @@ def print_feature_importances(columns, tuned_classifier):
 
 
 def main():
-    training_data = pandas.read_csv("data/train.csv", header=0)
-    test_data = pandas.read_csv("data/test.csv", header=0)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("training_data", help="Training data (CSV)")
+    parser.add_argument("testing_data", help="Testing data (CSV)")
+    parser.add_argument("learning_curve_file", help="Learning curve (PNG)")
+    parser.add_argument("output", help="Output predictions (CSV)")
+    args = parser.parse_args()
+
+    training_data = pandas.read_csv(args.training_data, header=0)
+    test_data = pandas.read_csv(args.testing_data, header=0)
     all_data = pandas.concat([training_data, test_data])
 
     clean_data(all_data)
@@ -332,7 +340,7 @@ def main():
     split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, n_iter=10, random_state=4)
 
     # learning curve with default settings
-    learning_curve(training_x, training_y, "learning_curve.png")
+    learning_curve(training_x, training_y, args.learning_curve_file)
 
     print "Hyperparameter tuning"
     base_classifier = sklearn.ensemble.RandomForestClassifier(100, oob_score=True, random_state=13)
@@ -357,7 +365,7 @@ def main():
     test_x, _, _ = select_features(test_data)
     test_predictions = tuned_classifier.predict(test_x)
 
-    with io.open("data/forest_current.csv", "wb") as csv_out:
+    with io.open(args.output, "wb") as csv_out:
         csv_writer = csv.writer(csv_out)
         csv_writer.writerow(["PassengerId", "Survived"])
         csv_writer.writerows(zip(ids, test_predictions.astype(int)))
