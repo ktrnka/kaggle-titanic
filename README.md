@@ -1858,3 +1858,333 @@ Feature importances
 The feature is used much much less which is what I want.
 
 test acc 0.80383
+
+Generalizing FareFill
+=====================
+The FareFill regressor is almost certainly overfitting. Let's try dropping all the little features.
+
+Before
+------
+Fare hyperparameter tuning
+Feature importances
+	TicketSize          : 0.422876820229
+	Pclass              : 0.383775854628
+	CabinNum            : 0.0704656654573
+	TicketAlphaPart     : 0.0446555919564
+	DeckNum             : 0.0318466386355
+	Parch               : 0.0224494637933
+	SibSp               : 0.0119563134962
+	Embarked_C          : 0.00345011534906
+	Title_Miss          : 0.00283840056222
+	Embarked_S          : 0.00195008625089
+	Title_Dr            : 0.0013341042233
+	Title_Mr            : 0.00115564253722
+	Title_Mrs           : 0.000724340103577
+	SexNum              : 0.000302812525584
+	Title_Master        : 0.000149080920121
+	Title_Military      : 2.65115199297e-05
+	Embarked_Q          : 1.85699749614e-05
+	Title_Sir           : 1.39705344702e-05
+	Title_Lady          : 7.42717965424e-06
+	Title_Rev           : 2.59012321608e-06
+Validation score 0.885 +/- 0.059, Hyperparams {'max_features': 0.8, 'min_samples_split': 10, 'min_samples_leaf': 1}
+
+Validation score 0.828 +/- 0.030, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.206323441762
+	Title_Mr            : 0.197157844396
+	FareFillBin         : 0.126777417397
+	Pclass              : 0.123385060321
+	Title_Mrs           : 0.0737188660979
+	TicketAlphaPart     : 0.0726766253841
+	Title_Miss          : 0.0678493930691
+	Deck_U              : 0.067652612273
+	Title_Master        : 0.0254632187472
+	Deck_E              : 0.0101059992689
+	Deck_D              : 0.00796560662576
+	Deck_B              : 0.00779484718337
+	Deck_C              : 0.00746351536485
+	Deck_A              : 0.00346141586714
+	Deck_F              : 0.00220413624172
+
+After
+-----
+Fare hyperparameter tuning
+Feature importances
+	TicketSize          : 0.360887081543
+	Pclass              : 0.273428481131
+	CabinNum            : 0.175758626446
+	DeckNum             : 0.0686392292046
+	TicketAlphaPart     : 0.0536471513711
+	Parch               : 0.0393622753009
+	SibSp               : 0.0282771550041
+Validation score 0.893 +/- 0.056, Hyperparams {'max_features': 0.5, 'min_samples_split': 10, 'min_samples_leaf': 1}
+
+So FareFill is correlating a touch better than it used to.
+
+Validation score 0.827 +/- 0.030, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.2084514096
+	Title_Mr            : 0.198133421877
+	FareFillBin         : 0.125957235255
+	Pclass              : 0.121888245132
+	Title_Mrs           : 0.0741492740886
+	TicketAlphaPart     : 0.0725781132701
+	Deck_U              : 0.0674181190726
+	Title_Miss          : 0.0670276371001
+	Title_Master        : 0.0258327978664
+	Deck_E              : 0.0102744797719
+	Deck_D              : 0.00767767492626
+	Deck_C              : 0.00754900195891
+	Deck_B              : 0.00752646234627
+	Deck_A              : 0.00341538290595
+	Deck_F              : 0.00212074482914
+
+Overall CV score goes down and the FareFillBin feature importance goes down. The learning curves look identical so
+I'm hoping for an identical score.
+
+Test acc: 0.81818 (same as best)
+
+Dropping SexNum
+===============
+The sex value is already captured in the title so it might help a tiny bit to drop it.
+
+Validation score 0.824 +/- 0.029, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 1}
+Feature importances
+	Title_Mr            : 0.405125765096
+	Pclass              : 0.137407469741
+	FareFillBin         : 0.106101089646
+	Title_Miss          : 0.0935691099185
+	Title_Mrs           : 0.0898005756333
+	Deck_U              : 0.0667069068971
+	TicketAlphaPart     : 0.0549311722439
+	Title_Master        : 0.014531785871
+	Deck_E              : 0.0131866043783
+	Deck_D              : 0.00553380248796
+	Deck_C              : 0.00507307376047
+	Deck_B              : 0.00355007653545
+	Deck_A              : 0.00255334682659
+	Deck_F              : 0.00192922096432
+
+The learning curve seems to improve slightly. I do like that it picks a higher min samples split value.
+
+Test acc: 0.79904 (wow way worse)
+
+Dropping decks A, F
+===================
+These decks are uncommon and we're overfitting.
+
+Validation score 0.824 +/- 0.029, Hyperparams {'max_features': 0.5, 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	Title_Mr            : 0.252994058881
+	SexNum              : 0.214232106259
+	Pclass              : 0.140613275156
+	FareFillBin         : 0.120597024915
+	TicketAlphaPart     : 0.0762413434765
+	Deck_U              : 0.0519293965434
+	Title_Miss          : 0.0392111634075
+	Title_Mrs           : 0.0357767704465
+	Title_Master        : 0.0342061899009
+	Deck_E              : 0.00979466398243
+	Deck_B              : 0.00881119904348
+	Deck_D              : 0.00798743186607
+	Deck_C              : 0.00760537612227
+
+The learning curve is about the same as the SexNum experiment but we clearly dropped the two least useful features.
+
+Test acc: 0.80861 (not the best)
+
+Dropping deck F
+===============
+Survival rates are a bit higher in Deck A I think so that feature should be useful. Most of the unlisted people
+were in decks F and G I think so I'll try dropping just F.
+
+Validation score 0.828 +/- 0.036, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	Title_Mr            : 0.254583523455
+	SexNum              : 0.175261160755
+	Pclass              : 0.127022098795
+	FareFillBin         : 0.124379078307
+	TicketAlphaPart     : 0.08213988704
+	Title_Mrs           : 0.0596056159295
+	Title_Miss          : 0.0577752065213
+	Deck_U              : 0.0524297813549
+	Title_Master        : 0.0260087187214
+	Deck_E              : 0.0115795725636
+	Deck_B              : 0.0091762365335
+	Deck_D              : 0.00910936826172
+	Deck_C              : 0.00727935264159
+	Deck_A              : 0.00365039911963
+
+The learning curve looks the same as the previous two.
+
+Test acc 0.81340
+
+Ticket number part, 3 bins
+==========================
+This clearly adds overfitting in the learning curve. And it worsens the validation score:
+Validation score 0.820 +/- 0.042, Hyperparams {'max_features': 0.5, 'min_samples_split': 5, 'min_samples_leaf': 3}
+
+Feature importances
+	Title_Mr            : 0.277280395005
+	SexNum              : 0.203985510335
+	Pclass              : 0.111089081867
+	FareFillBin         : 0.108471593271
+	TicketNumPartBin    : 0.0617612990928
+	TicketAlphaPart     : 0.0591149354841
+	Deck_U              : 0.0553679711605
+	Title_Master        : 0.0331570713903
+	Title_Mrs           : 0.0321345441323
+	Title_Miss          : 0.0281628546372
+	Deck_E              : 0.00817860560064
+	Deck_D              : 0.00745885545438
+	Deck_C              : 0.00552233930483
+	Deck_B              : 0.00457025295037
+	Deck_A              : 0.00256902603441
+	Deck_F              : 0.00117566428157
+
+So I don't feel good about it. I also tried a test of dropping the ticket alpha part and only using the qcut3 num
+part. That reduces overfitting but doesn't improve CV scores in the graph or numbers:
+Validation score 0.819 +/- 0.036, Hyperparams {'max_features': 12, 'min_samples_split': 20, 'min_samples_leaf': 1}
+
+It's possible that I can use more bins now because the ticket alpha part bins are gone, so I'll try 6 bins instead:
+The learning curve looks more overfit than ticket alpha although it helps test slightly in the graph.
+Validation score 0.817 +/- 0.036, Hyperparams {'max_features': 0.5, 'min_samples_split': 5, 'min_samples_leaf': 1}
+
+Ticket Alpha Part fixing overfitting
+====================================
+There are many values of the ticket alpha that aren't common.
+ 
+Delete everything after the slash
+---------------------------------
+This reduces the number of categories and there seems to be some correlation.
+
+The learning curve again seems to learn faster but ends at about the same place.
+Validation score 0.826 +/- 0.029, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.210580565613
+	Title_Mr            : 0.191805269537
+	FareFillBin         : 0.124214477612
+	Pclass              : 0.122058131909
+	TicketAlphaPart     : 0.0759742836625
+	Title_Mrs           : 0.0746829887002
+	Title_Miss          : 0.0705189149462
+	Deck_U              : 0.0648744171514
+	Title_Master        : 0.0259587870559
+	Deck_E              : 0.0110108549113
+	Deck_B              : 0.00839434698228
+	Deck_D              : 0.00751143333618
+	Deck_C              : 0.00712897173474
+	Deck_A              : 0.00308893363822
+	Deck_F              : 0.00219762321039
+
+Use indicators and drop the less common ones
+--------------------------------------------
+Dropping any with less than 10
+
+Validation score 0.829 +/- 0.034, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	Title_Mr            : 0.222776604576
+	SexNum              : 0.209152810184
+	FareFillBin         : 0.113492962526
+	Pclass              : 0.112348975669
+	Title_Mrs           : 0.0730993267102
+	Title_Miss          : 0.0668292022864
+	Deck_U              : 0.056487287729
+	Title_Master        : 0.0244739687445
+	TicketAlphaPart_nan : 0.0222325506073
+	TicketAlphaPart_PC  : 0.0147273986235
+	Deck_B              : 0.0138802518694
+	Deck_E              : 0.012744608545
+	Deck_D              : 0.0106973772429
+	TicketAlphaPart_CA  : 0.0105519321775
+	TicketAlphaPart_STON: 0.00871274161103
+	Deck_C              : 0.00841041422138
+	TicketAlphaPart_W   : 0.00606879705104
+	TicketAlphaPart_A   : 0.00521954610125
+	Deck_A              : 0.00260658591969
+	Deck_F              : 0.00244815249815
+	TicketAlphaPart_SC  : 0.00169852006609
+	TicketAlphaPart_SOTON: 0.00133998504069
+
+The features were used a little bit. The graph looks a bit more jaggy on the test samples.
+
+Dropping any under 5, less text normalization
+---------------------------------------------
+The graph looks slightly better.
+
+Validation score 0.821 +/- 0.036, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 10, 'min_samples_leaf': 1}
+Feature importances
+	Title_Mr            : 0.236785839572
+	SexNum              : 0.184341110226
+	FareFillBin         : 0.119547502811
+	Pclass              : 0.11163999539
+	Deck_U              : 0.0601980578684
+	Title_Mrs           : 0.058147999322
+	Title_Miss          : 0.055938203894
+	Title_Master        : 0.0240226642194
+	TicketAlphaPart_nan : 0.0199762133285
+	Deck_E              : 0.013344878211
+	Deck_B              : 0.0126125233569
+	Deck_D              : 0.012161090637
+	TicketAlphaPart_STON/O: 0.0109377474212
+	TicketAlphaPart_PC  : 0.0107279127617
+	Deck_C              : 0.00919221730607
+	TicketAlphaPart_C.A.: 0.00819390031701
+	TicketAlphaPart_CA  : 0.0072252838949
+	TicketAlphaPart_W./C.: 0.00711172903196
+	TicketAlphaPart_CA. : 0.00563653585627
+	TicketAlphaPart_A/5.: 0.00532402796898
+	Deck_A              : 0.00421073519047
+	Deck_F              : 0.00358245021609
+	TicketAlphaPart_SOTON/O.Q.: 0.00301255477459
+	TicketAlphaPart_C   : 0.00259488520467
+	TicketAlphaPart_STON/O2.: 0.00232122437213
+	TicketAlphaPart_S.O./P.P.: 0.00226994503224
+	TicketAlphaPart_SC/PARIS: 0.00184487877996
+	TicketAlphaPart_A/5 : 0.00165431397296
+	TicketAlphaPart_F.C.C.: 0.00154189228297
+	TicketAlphaPart_SC/Paris: 0.00118097836413
+	TicketAlphaPart_S.O.C.: 0.00105689241631
+	TicketAlphaPart_SOTON/OQ: 0.00104343431527
+	TicketAlphaPart_SC/AH: 0.000362931052712
+	TicketAlphaPart_A/4 : 0.000257450631199
+
+Validation score is meh, let's try partial normalization (remove periods)
+
+Validation score 0.824 +/- 0.032, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 5, 'min_samples_leaf': 2}
+Feature importances
+	Title_Mr            : 0.240679840391
+	SexNum              : 0.206215532775
+	Pclass              : 0.115950714941
+	FareFillBin         : 0.104345018143
+	Title_Miss          : 0.0742192585329
+	Title_Mrs           : 0.0674874807248
+	Deck_U              : 0.0464093643346
+	Title_Master        : 0.0274757422102
+	TicketAlphaPart_nan : 0.0154847625001
+	TicketAlphaPart_PC  : 0.0144578878166
+	Deck_B              : 0.0134568976442
+	Deck_E              : 0.0132319641251
+	Deck_D              : 0.0131595584599
+	TicketAlphaPart_CA  : 0.0096100641489
+	Deck_C              : 0.00833333118529
+	TicketAlphaPart_STON/O: 0.00667215760635
+	TicketAlphaPart_W/C : 0.0064026842871
+	TicketAlphaPart_A/5 : 0.00273844035039
+	Deck_A              : 0.00270534788287
+	Deck_F              : 0.0023146295972
+	TicketAlphaPart_SC/PARIS: 0.00226204285273
+	TicketAlphaPart_STON/O2: 0.00127938614414
+	TicketAlphaPart_C   : 0.00126127527278
+	TicketAlphaPart_SOC : 0.00117847923008
+	TicketAlphaPart_SOTON/OQ: 0.00116154174141
+	TicketAlphaPart_FCC : 0.000679360512672
+	TicketAlphaPart_A/4 : 0.000542882674727
+	TicketAlphaPart_SO/PP: 0.000195079449904
+	TicketAlphaPart_SC/AH: 8.92744657083e-05
+
+In general the graph looks a tad better: training error gets closer to testing error a touch, testing error goes down a
+touch, and variance in the testing error goes down a touch.
+
+Test acc: 0.79904 (ugh)
