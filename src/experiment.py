@@ -34,10 +34,12 @@ TITLE_REMAP = {
 }
 DEFAULT_DECK = "U"
 
+
 def median_no_avg(numbers):
     """Median without averaging for even number of elements"""
     numbers = sorted(numbers)
-    return numbers[len(numbers)/2]
+    return numbers[len(numbers) / 2]
+
 
 def extract_title(name):
     """Extract Mr/Mrs from the name field"""
@@ -97,10 +99,12 @@ def extract_ticket_alpha_part(ticket):
         return parts[0]
 
 
-def transform_features(data):
+def select_features(data):
     """Select just the features to use for the main classifier"""
-    data = data.drop("CabinNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, NamesNum, Parch, ShipSide, SibSp, TicketNumPart, Title_Dr, Title_Lady, Title_Military, Title_Rev, Title_Sir".split(", "), axis=1)
-    data = data.drop(["Name", "Cabin", "Embarked", "Ticket", "TicketSize", "PassengerId", "FamilySize", "DeckNum"], axis=1)
+    data = data.drop(
+        "CabinNum, Embarked_C, Embarked_Q, Embarked_S, FareFill, NamesNum, Parch, ShipSide, SibSp, TicketNumPart, Title_Dr, Title_Lady, Title_Military, Title_Rev, Title_Sir".split(
+            ", "), axis=1)
+    data = data.drop(["Name", "Cabin", "Ticket", "TicketSize", "PassengerId", "FamilySize", "DeckNum"], axis=1)
     data.info()
     print "Data columns: {}".format(", ".join(sorted(data.columns)))
     X = data.drop("Survived", axis=1)
@@ -110,17 +114,17 @@ def transform_features(data):
 def print_tuning_scores(tuned_estimator, reverse=True):
     """Show the cross-validation scores and hyperparamters from a grid or random search"""
     for test in sorted(tuned_estimator.grid_scores_, key=itemgetter(1), reverse=reverse):
-        print "Validation score {:.3f} +/- {:.3f}, Hyperparams {}".format(test.mean_validation_score, test.cv_validation_scores.std(), test.parameters)
-
-def bin_fare(fare, bin_size=10, max_bins=4):
-    """Group the fare into bins just like the genderclass experiment"""
-    return min(int(fare / float(bin_size)), max_bins - 1)
+        print "Validation score {:.3f} +/- {:.3f}, Hyperparams {}".format(test.mean_validation_score,
+                                                                          test.cv_validation_scores.std(),
+                                                                          test.parameters)
 
 
 def fill_age(data, evaluate=True):
     """Create the AgeFill field, which copies Age and fills in missing values"""
     # age and the features used to predict it
-    age_data = data[["Age", "Embarked_C", "Embarked_S", "Embarked_Q", "TitleNum", "DeckNum", "CabinNum", "SexNum", "NamesNum", "SibSp", "Parch", "Pclass"]]
+    age_data = data[
+        ["Age", "Embarked_C", "Embarked_S", "Embarked_Q", "TitleNum", "DeckNum", "CabinNum", "SexNum", "NamesNum",
+         "SibSp", "Parch", "Pclass"]]
 
     age_known = age_data[age_data.Age.notnull()]
     age_unknown = age_data[age_data.Age.isnull()]
@@ -157,9 +161,12 @@ def fill_age(data, evaluate=True):
 
 
 def fill_fare(data, evaluate=True):
-    """Create the FareFill field, which fills in missing values from Fare"""
+    """Create a Series with the fare values all filled in"""
     # fare and predictors
-    fare_data = data[["Fare", "TicketSize", "Pclass", "Embarked_Q", "Embarked_S", "Embarked_C", "SexNum", "DeckNum", "CabinNum", "SibSp", "Parch", "Title_Dr", "Title_Lady", "Title_Master", "Title_Military", "Title_Miss", "Title_Mr", "Title_Mrs", "Title_Rev", "Title_Sir", "TicketAlphaPart"]]
+    fare_data = data[
+        ["Fare", "TicketSize", "Pclass", "Embarked_Q", "Embarked_S", "Embarked_C", "SexNum", "DeckNum", "CabinNum",
+         "SibSp", "Parch", "Title_Dr", "Title_Lady", "Title_Master", "Title_Military", "Title_Miss", "Title_Mr",
+         "Title_Mrs", "Title_Rev", "Title_Sir", "TicketAlphaPart"]]
 
     fare_known = fare_data[fare_data.Fare.notnull()]
     fare_unknown = fare_data[fare_data.Fare.isnull()]
@@ -191,14 +198,20 @@ def fill_fare(data, evaluate=True):
         print_tuning_scores(regressor_tuning)
 
     predicted = regressor_tuning.predict(fare_unknown.drop("Fare", axis=1).values)
-    data["FareFill"] = data.Fare
-    data.loc[data.FareFill.isnull(), "FareFill"] = predicted
 
-def convert_to_indicators(data, column):
-    """Create indicator features for a column and add them to the data"""
+    filled_fare = pandas.Series(data.Fare)
+    filled_fare.loc[filled_fare.isnull()] = predicted
+    return filled_fare
+
+
+def convert_to_indicators(data, column, drop=True):
+    """Create indicator features for a column, add them to the data, and remove the original field"""
     dummies = pandas.get_dummies(data[column], column)
     for col in dummies.columns:
         data[col] = dummies[col]
+
+    if drop:
+        data.drop(column, axis=1, inplace=True)
 
 
 def compute_ticket_survival(data):
@@ -209,11 +222,10 @@ def compute_ticket_survival(data):
     other_ticket_holder_survival = survival_by_ticket.ix[data.Ticket, 0].fillna(0).values - data.Survived.fillna(0).values
 
     ticket_survival = pandas.Series(other_ticket_holder_survival / (other_ticket_holders + 0.01))
-    ticket_survival = (ticket_survival >= 1./1.01).astype(int)
-    # ticket_survival.loc[other_ticket_holders == 0] = -1
-    # ticket_survival.loc[ticket_survival > 0] = 1.
+    ticket_survival = (ticket_survival >= 1. / 1.01).astype(int)
 
     return ticket_survival
+
 
 def clean_data(data):
     """Transform the unified training and testing data, filling in missing values and adding derived features"""
@@ -232,13 +244,8 @@ def clean_data(data):
     ticket_counts = data.Ticket.value_counts()
     data["TicketSize"] = ticket_counts.ix[data.Ticket].values
 
-
     data["TitleNum"] = data.Title.factorize()[0]
-    title_indicators = pandas.get_dummies(data.Title, "Title")
-    for column in title_indicators.columns:
-        data[column] = title_indicators[column]
-    data.drop("Title", axis=1, inplace=True)
-
+    convert_to_indicators(data, "Title")
 
     # deck
     data.loc[data.Cabin.isnull(), "Cabin"] = DEFAULT_DECK + "0"
@@ -247,39 +254,23 @@ def clean_data(data):
     # deck number
     data["DeckNum"] = pandas.factorize(data.Deck)[0]
 
+    # deck as indicators but drop the uncommon decks
     convert_to_indicators(data, "Deck")
     data.drop(["Deck_T", "Deck_G"], axis=1, inplace=True)
-    data.drop(["Deck"], axis=1, inplace=True)
 
     # cabin number, side of ship
     data["CabinNum"] = data.Cabin.map(extract_cabin_number)
-    data["ShipSide"] = numpy.round(data.CabinNum) % 2
+    data["ShipSide"] = data.CabinNum % 2
     data.loc[data.CabinNum == 0, "ShipSide"] = -1
 
     # ticket derived features
     data["TicketAlphaPart"] = pandas.factorize(data.Ticket.map(extract_ticket_alpha_part).str.upper().str.replace(r"\.", ""))[0]
     data["TicketNumPart"] = data.Ticket.map(extract_ticket_number_part)
 
-    # survival of other members
-    # family_survival = data.pivot_table(index=["Ticket"], values=["Survived"], aggfunc=[numpy.sum, len])
-    # data["FamilySurvival"] = family_survival[data.Ticket]
-
     # clean up the fare
-    # data["FarePerPerson"] = data.Fare / data.FamilySize
     data.loc[data.Fare == 0, "Fare"] = None
-    fill_fare(data)
+    data["FareFill"] = fill_fare(data)
     data["FareFillBin"] = pandas.qcut(data.FareFill, 5, labels=False)
-    # convert_to_indicators(data, "FareFillBin")
-
-    # clean up the Age column
-    # fill_age(data)
-    # data["AgeFillBin"] = pandas.qcut(data.AgeFill, 5, labels=False)
-    # convert_to_indicators(data, "AgeFillBin")
-
-    # data["SibSp > 0"] = (data.SibSp > 0).astype(int)
-    # data["Parch > 0"] = (data.Parch > 0).astype(int)
-
-    # data["FamilySize > 1"] = (data.FamilySize > 1).astype(int)
 
     # drop temp vars
     data.drop(["TitleNum", "Age", "Fare"], axis=1, inplace=True)
@@ -335,7 +326,7 @@ def main():
     training_data = all_data[all_data.Survived.notnull()]
     test_data = all_data[all_data.Survived.isnull()]
 
-    training_x, training_y, columns = transform_features(training_data)
+    training_x, training_y, columns = select_features(training_data)
 
     # cross-validate the classifier
     split_iterator = sklearn.cross_validation.StratifiedShuffleSplit(training_y, n_iter=10, random_state=4)
@@ -352,7 +343,7 @@ def main():
         "min_samples_leaf": [1, 2, 3]
     }
     parameter_space["max_features"] = [n for n in parameter_space["max_features"] if n is None or n > 0]
-    tuned_classifier = sklearn.grid_search.GridSearchCV(base_classifier, parameter_space, n_jobs=-1, cv=split_iterator, refit=True)
+    tuned_classifier = sklearn.grid_search.GridSearchCV(base_classifier, parameter_space, n_jobs=-1, cv=split_iterator,refit=True)
     tuned_classifier.fit(training_x, training_y)
     print_tuning_scores(tuned_classifier)
 
@@ -363,7 +354,7 @@ def main():
     print "Training accuracy: {:.3f}".format(1. - numpy.abs(diffs).mean())
 
     ids = test_data.PassengerId.values
-    test_x, _, _ = transform_features(test_data)
+    test_x, _, _ = select_features(test_data)
     test_predictions = tuned_classifier.predict(test_x)
 
     with io.open("data/forest_current.csv", "wb") as csv_out:
