@@ -2188,3 +2188,6 @@ In general the graph looks a tad better: training error gets closer to testing e
 touch, and variance in the testing error goes down a touch.
 
 Test acc: 0.79904 (ugh)
+
+On the bright side I got to add to my function to create indicator variables. All in all I made no progress on the scores
+today.

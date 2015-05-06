@@ -164,7 +164,7 @@ def fill_age(data, evaluate=True):
 def fill_fare(data, evaluate=True):
     """Create a Series with the fare values all filled in"""
     # fare and predictors
-    fare_data = data[["Fare", "TicketSize", "Pclass", "DeckNum", "CabinNum", "SibSp", "Parch", "TicketAlphaPartNum"]]
+    fare_data = data[["Fare", "TicketSize", "Pclass", "DeckNum", "CabinNum", "SibSp", "Parch", "TicketAlphaPart"]]
 
     fare_known = fare_data[fare_data.Fare.notnull()]
     fare_unknown = fare_data[fare_data.Fare.isnull()]
@@ -252,9 +252,7 @@ def clean_data(data):
     data.loc[data.CabinNum == 0, "ShipSide"] = -1
 
     # ticket derived features
-    data["TicketAlphaPart"] = data.Ticket.map(extract_ticket_alpha_part).str.upper().str.replace(r"\.", "")
-    data["TicketAlphaPartNum"] = pandas.factorize(data.TicketAlphaPart)[0]
-    convert_to_indicators(data, "TicketAlphaPart", min_values=5)
+    data["TicketAlphaPart"] = pandas.factorize(data.Ticket.map(extract_ticket_alpha_part).str.upper().str.replace(r"\.", ""))[0]
     data["TicketNumPart"] = data.Ticket.map(extract_ticket_number_part)
 
     # clean up the fare
@@ -263,7 +261,7 @@ def clean_data(data):
     data["FareFillBin"] = pandas.qcut(data.FareFill, 5, labels=False)
 
     # drop temp vars
-    data.drop(["TitleNum", "Age", "Fare", "TicketAlphaPartNum"], axis=1, inplace=True)
+    data.drop(["TitleNum", "Age", "Fare"], axis=1, inplace=True)
 
 
 def learning_curve(training_x, training_y, filename):
