@@ -2191,3 +2191,55 @@ Test acc: 0.79904 (ugh)
 
 On the bright side I got to add to my function to create indicator variables. All in all I made no progress on the scores
 today.
+
+Can slightly more aggressive regularization help?
+-------------------------------------------------
+Let's drop min samples split 5 and 10.
+
+This wouldn't be represented in the graphs so I can't really compare. The cross-validation numbers
+will go down because we're tuning fewer params to the data.
+
+Validation score 0.820 +/- 0.031, Hyperparams {'max_features': 0.5, 'min_samples_split': 20, 'min_samples_leaf': 3}
+Feature importances
+	Title_Mr            : 0.290345720337
+	SexNum              : 0.243246639129
+	Pclass              : 0.136135951997
+	FareFillBin         : 0.0958675950593
+	Deck_U              : 0.0579645196574
+	Title_Mrs           : 0.0552415313972
+	TicketAlphaPart     : 0.040209026906
+	Title_Miss          : 0.0313843168428
+	Title_Master        : 0.0235480584565
+	Deck_E              : 0.0101508261018
+	Deck_D              : 0.00556842888996
+	Deck_B              : 0.00376206741909
+	Deck_C              : 0.00354171912137
+	Deck_A              : 0.00166064709983
+	Deck_F              : 0.00137295158547
+
+Test acc: 0.80383
+
+How about 10?
+Validation score 0.821 +/- 0.032, Hyperparams {'max_features': 'sqrt', 'min_samples_split': 10, 'min_samples_leaf': 2}
+Feature importances
+	SexNum              : 0.211867929928
+	Title_Mr            : 0.195436064591
+	Pclass              : 0.12288923213
+	FareFillBin         : 0.120921674026
+	Title_Mrs           : 0.0809781683529
+	Title_Miss          : 0.0762109241615
+	Deck_U              : 0.0630536119916
+	TicketAlphaPart     : 0.0629208517291
+	Title_Master        : 0.027556483538
+	Deck_E              : 0.0100728594007
+	Deck_D              : 0.00821798386964
+	Deck_B              : 0.00733278108714
+	Deck_C              : 0.00706216929308
+	Deck_A              : 0.00323354966585
+	Deck_F              : 0.00224571623584
+
+Test acc: 0.80861
+This means that MSS 5 is actually important which amazes me.
+
+MSS 3 gets
+0.81340

@@ -334,7 +334,7 @@ def main():
     parameter_space = {
         "max_features": [None, "sqrt", 0.5, training_x.shape[1] - 1, training_x.shape[1] - 2, training_x.shape[1] - 3,
                          training_x.shape[1] - 4, training_x.shape[1] - 5],
-        "min_samples_split": [5, 10, 20, 30],
+        "min_samples_split": [3, 5, 10, 20],
         "min_samples_leaf": [1, 2, 3]
     }
     parameter_space["max_features"] = [n for n in parameter_space["max_features"] if n is None or n > 0]
